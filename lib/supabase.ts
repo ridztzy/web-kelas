@@ -8,7 +8,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true,
+    detectSessionInUrl: false, // Disable karena kita pakai cookie
     storage: {
       getItem: (key: string) => {
         if (typeof window !== 'undefined') {
@@ -34,31 +34,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
       'Content-Type': 'application/json',
     },
   },
-  db: {
-    schema: 'public',
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10,
-    },
-  },
 });
-
-// Client untuk server-side operations
-export const createServerSupabaseClient = () => {
-  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-    global: {
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-    },
-  });
-};
 
 // Helper function untuk debug connection
 export const testSupabaseConnection = async () => {

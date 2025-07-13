@@ -39,7 +39,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    refreshUser();
+    // Delay sedikit untuk memastikan cookie sudah tersedia
+    const timer = setTimeout(() => {
+      refreshUser();
+    }, 100);
+    
+    return () => clearTimeout(timer);
   }, []);
 
   const value = {

@@ -70,10 +70,10 @@ export default function LoginForm() {
   };
 
   const demoAccounts = [
-    { nim: '2021001', role: 'Admin' },
-    { nim: '2021002', role: 'Ketua Kelas' },
-    { nim: '2021003', role: 'Sekretaris' },
-    { nim: '2021004', role: 'Mahasiswa' }
+    { nim: '2021001', role: 'Admin', password: '123456' },
+    { nim: '2021002', role: 'Ketua Kelas', password: '123456' },
+    { nim: '2021003', role: 'Sekretaris', password: '123456' },
+    { nim: '2021004', role: 'Mahasiswa', password: '123456' }
   ];
 
   const handleDemoLogin = async (demoNim: string) => {
@@ -196,11 +196,14 @@ export default function LoginForm() {
         <CardContent>
           <div className="space-y-2 text-sm">
             <p className="text-gray-600 dark:text-gray-400 mb-2">
-              Password untuk semua akun: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">123456</code>
+              Klik tombol "Login" untuk login otomatis dengan akun demo
             </p>
             {demoAccounts.map((account, index) => (
               <div key={index} className="flex justify-between items-center">
-                <span className="text-gray-700 dark:text-gray-300">NIM: {account.nim}</span>
+                <div className="flex flex-col">
+                  <span className="text-gray-700 dark:text-gray-300 font-medium">NIM: {account.nim}</span>
+                  <span className="text-xs text-gray-500">Password: {account.password}</span>
+                </div>
                 <div className="flex items-center space-x-2">
                   <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
                     {account.role}
