@@ -286,3 +286,159 @@ export const updateProfile = async (userId: string, updates: Partial<{
     return { success: false, error: 'Terjadi kesalahan saat update profile' };
   }
 };
+
+// Admin functions untuk CRUD users
+export const createUserByAdmin = async (userData: {
+  nim: string;
+  name: string;
+  email: string;
+  password: string;
+  role?: 'admin' | 'ketua_kelas' | 'sekretaris' | 'mahasiswa';
+  semester?: number;
+  phone?: string;
+  bio?: string;
+}): Promise<{ success: boolean; error?: string; userId?: string }> => {
+  try {
+    const { data, error } = await supabase.rpc('create_user_by_admin', {
+      user_nim: userData.nim,
+      user_name: userData.name,
+      user_email: userData.email,
+      user_password: userData.password,
+      user_role: userData.role || 'mahasiswa',
+      user_semester: userData.semester || 1,
+      user_phone: userData.phone || null,
+      user_bio: userData.bio || null
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    if (data.error) {
+      return { success: false, error: data.error };
+    }
+
+    return { 
+      success: true, 
+      userId: data.user_id 
+    };
+  } catch (error) {
+    console.error('Create user error:', error);
+    return { success: false, error: 'Terjadi kesalahan saat membuat user' };
+  }
+};
+
+export const updateUserByAdmin = async (
+  userId: string,
+  updates: Partial<{
+    name: string;
+    email: string;
+    role: 'admin' | 'ketua_kelas' | 'sekretaris' | 'mahasiswa';
+    semester: number;
+    phone: string;
+    bio: string;
+  }>
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const { data, error } = await supabase.rpc('update_user_by_admin', {
+      target_user_id: userId,
+      user_name: updates.name || null,
+      user_email: updates.email || null,
+      user_role: updates.role || null,
+      user_semester: updates.semester || null,
+      user_phone: updates.phone || null,
+      user_bio: updates.bio || null
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    if (data.error) {
+      return { success: false, error: data.error };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Update user error:', error);
+    return { success: false, error: 'Terjadi kesalahan saat update user' };
+  }
+};
+
+export const deleteUserByAdmin = async (userId: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const { data, error } = await supabase.rpc('delete_user_by_admin', {
+      target_user_id: userId
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    if (data.error) {
+      return { success: false, error: data.error };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Delete user error:', error);
+    return { success: false, error: 'Terjadi kesalahan saat menghapus user' };
+  }
+};
+
+export const getAllUsers = async (): Promise<{ 
+  success: boolean; 
+  users?: User[]; 
+  error?: string 
+}> => {
+  try {
+    const { data, error } = await supabase.rpc('get_all_users');
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    const users: User[] = data.map((user: any) => ({
+      id: user.id,
+      name: user.name,
+      email: user.email || '',
+      role: user.role,
+      npm: user.nim,
+      semester: user.semester || 1,
+      avatar: user.avatar_url,
+      createdAt: new Date(user.created_at),
+      updatedAt: new Date(user.updated_at),
+      lastSignInAt: user.last_sign_in_at ? new Date(user.last_sign_in_at) : undefined
+    }));
+
+    return { success: true, users };
+  } catch (error) {
+    console.error('Get all users error:', error);
+    return { success: false, error: 'Terjadi kesalahan saat mengambil data users' };
+  }
+};
+
+export const resetUserPassword = async (
+  userId: string, 
+  newPassword: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const { data, error } = await supabase.rpc('reset_user_password', {
+      target_user_id: userId,
+      new_password: newPassword
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    if (data.error) {
+      return { success: false, error: data.error };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Reset password error:', error);
+    return { success: false, error: 'Terjadi kesalahan saat reset password' };
+  }
+};
