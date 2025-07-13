@@ -9,11 +9,11 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { login } from '@/lib/auth';
+import { loginWithNIM } from '@/lib/auth-supabase';
 import { GraduationCap, Sun, Moon, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginForm() {
-  const [email, setEmail] = useState('');
+  const [nim, setNim] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -28,12 +28,12 @@ export default function LoginForm() {
     setIsLoading(true);
 
     try {
-      const user = login(email, password);
-      if (user) {
-        setUser(user);
+      const result = await loginWithNIM(nim, password);
+      if (result.user) {
+        setUser(result.user);
         router.push('/dashboard');
       } else {
-        setError('Email atau password salah');
+        setError(result.error || 'NIM atau password salah');
       }
     } catch (err) {
       setError('Terjadi kesalahan saat login');
@@ -43,10 +43,10 @@ export default function LoginForm() {
   };
 
   const demoAccounts = [
-    { email: 'ahmad.rizki@student.ac.id', role: 'Admin' },
-    { email: 'siti.nur@student.ac.id', role: 'Ketua Kelas' },
-    { email: 'budi.santoso@student.ac.id', role: 'Sekretaris' },
-    { email: 'dewi.sartika@student.ac.id', role: 'Mahasiswa' }
+    { nim: '2021001', role: 'Admin' },
+    { nim: '2021002', role: 'Ketua Kelas' },
+    { nim: '2021003', role: 'Sekretaris' },
+    { nim: '2021004', role: 'Mahasiswa' }
   ];
 
   return (
@@ -86,13 +86,13 @@ export default function LoginForm() {
           
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="nim">NIM</Label>
               <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="nama@student.ac.id"
+                id="nim"
+                type="text"
+                value={nim}
+                onChange={(e) => setNim(e.target.value)}
+                placeholder="2021001"
                 required
               />
             </div>
@@ -142,7 +142,7 @@ export default function LoginForm() {
             </p>
             {demoAccounts.map((account, index) => (
               <div key={index} className="flex justify-between items-center">
-                <span className="text-gray-700 dark:text-gray-300">{account.email}</span>
+                <span className="text-gray-700 dark:text-gray-300">NIM: {account.nim}</span>
                 <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
                   {account.role}
                 </span>

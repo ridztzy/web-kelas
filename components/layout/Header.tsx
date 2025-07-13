@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
+import { logout } from '@/lib/auth-supabase';
 import { Bell, Search, UserCircle, Settings, LogOut, Menu } from 'lucide-react';
 import {
   DropdownMenu,
@@ -24,6 +25,7 @@ export default function Header() {
   const notificationCount = 3;
 
   const handleLogout = () => {
+    logout();
     setUser(null);
     router.push('/');
   };

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { logout } from '@/lib/auth';
+import { logout } from '@/lib/auth-supabase';
 import {
   Home,
   CheckSquare,
