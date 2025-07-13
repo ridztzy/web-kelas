@@ -44,7 +44,7 @@ export default function SettingsPage() {
   const [profileSettings, setProfileSettings] = useState({
     name: user?.name || '',
     email: user?.email || '',
-    npm: user?.npm || '',
+    nim: user?.nim || '',
     semester: user?.semester || 7,
     phone: '',
     bio: '',
@@ -166,11 +166,11 @@ export default function SettingsPage() {
                   </div>
                   
                   <div>
-                    <Label htmlFor="npm">NPM</Label>
+                    <Label htmlFor="nim">NIM</Label>
                     <Input
-                      id="npm"
-                      value={profileSettings.npm}
-                      onChange={(e) => setProfileSettings({...profileSettings, npm: e.target.value})}
+                      id="nim"
+                      value={profileSettings.nim}
+                      onChange={(e) => setProfileSettings({...profileSettings, nim: e.target.value})}
                       disabled
                     />
                   </div>

@@ -110,7 +110,7 @@ export default function Header() {
               <UserCircle className="w-8 h-8 text-primary" />
               <div className="hidden sm:block text-left">
                 <p className="text-sm font-medium">{user?.name}</p>
-                <p className="text-xs text-muted-foreground">NPM: {user?.npm}</p>
+                <p className="text-xs text-muted-foreground">NIM: {user?.nim}</p>
               </div>
             </Button>
           </DropdownMenuTrigger>

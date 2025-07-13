@@ -3,7 +3,7 @@ export interface User {
   name: string;
   email: string;
   role: 'admin' | 'ketua_kelas' | 'sekretaris' | 'mahasiswa';
-  npm: string;
+  nim: string;
   semester: number;
   avatar?: string;
   createdAt: Date;
