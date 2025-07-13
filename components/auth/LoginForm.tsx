@@ -27,6 +27,12 @@ export default function LoginForm() {
     if (connectionTested) return;
     
     try {
+      // Check if environment variables are set
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        setError('Konfigurasi Supabase belum lengkap. Silakan periksa file .env.local');
+        return;
+      }
+      
       const isConnected = await testSupabaseConnection();
       if (!isConnected) {
         setError('Koneksi ke database bermasalah. Silakan coba lagi.');
@@ -34,7 +40,7 @@ export default function LoginForm() {
       setConnectionTested(true);
     } catch (error) {
       console.error('Connection test error:', error);
-      setError('Gagal menguji koneksi database.');
+      setError('Gagal menguji koneksi database. Periksa konfigurasi Supabase Anda.');
     }
   };
 
