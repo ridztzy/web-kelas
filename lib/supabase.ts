@@ -28,9 +28,55 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
       },
     },
   },
+  global: {
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    },
+  },
+  db: {
+    schema: 'public',
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
+  },
 });
 
 // Client untuk server-side operations
 export const createServerSupabaseClient = () => {
-  return createClient<Database>(supabaseUrl, supabaseAnonKey);
+  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+    global: {
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+    },
+  });
+};
+
+// Helper function untuk debug connection
+export const testSupabaseConnection = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('count(*)')
+      .limit(1);
+    
+    if (error) {
+      console.error('Supabase connection test failed:', error);
+      return false;
+    }
+    
+    console.log('Supabase connection test successful');
+    return true;
+  } catch (error) {
+    console.error('Supabase connection test error:', error);
+    return false;
+  }
 };

@@ -45,17 +45,78 @@ export const loginWithNIM = async (nim: string, password: string): Promise<AuthR
       };
     }
 
-    // Ambil data profile lengkap
+    // Set session untuk memastikan RLS berfungsi
+    await supabase.auth.setSession({
+      access_token: authData.session?.access_token || '',
+      refresh_token: authData.session?.refresh_token || ''
+    });
+
+    // Tunggu sebentar untuk memastikan session tersimpan
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Ambil data profile lengkap dengan session yang sudah di-set
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', authData.user.id)
       .single();
 
-    if (profileError || !profile) {
+    if (profileError) {
+      console.error('Profile error:', profileError);
+      
+      // Jika gagal dengan query biasa, coba dengan RPC function
+      try {
+        const { data: profileRpc, error: rpcError } = await supabase
+          .rpc('get_user_profile', { user_id: authData.user.id });
+        
+        if (rpcError || !profileRpc) {
+          return {
+            user: null,
+            error: 'Gagal mengambil data profile: ' + (rpcError?.message || 'Data tidak ditemukan')
+          };
+        }
+        
+        // Gunakan data dari RPC
+        const user: User = {
+          id: profileRpc.id,
+          name: profileRpc.name,
+          email: profileRpc.email || '',
+          role: profileRpc.role as 'admin' | 'ketua_kelas' | 'sekretaris' | 'mahasiswa',
+          npm: profileRpc.nim,
+          semester: profileRpc.semester || 1,
+          avatar: profileRpc.avatar_url,
+          createdAt: new Date(profileRpc.created_at),
+          updatedAt: new Date(profileRpc.updated_at)
+        };
+
+        // Simpan session ke cookie
+        if (authData.session) {
+          Cookies.set('supabase-session', JSON.stringify({
+            access_token: authData.session.access_token,
+            refresh_token: authData.session.refresh_token,
+            expires_at: authData.session.expires_at,
+            user: user
+          }), {
+            expires: 7,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax'
+          });
+        }
+
+        return { user, error: null };
+        
+      } catch (rpcError) {
+        return {
+          user: null,
+          error: 'Gagal mengambil data profile'
+        };
+      }
+    }
+
+    if (!profile) {
       return {
         user: null,
-        error: 'Gagal mengambil data profile'
+        error: 'Data profile tidak ditemukan'
       };
     }
 
@@ -65,7 +126,7 @@ export const loginWithNIM = async (nim: string, password: string): Promise<AuthR
       name: profile.name,
       email: profile.email || '',
       role: profile.role as 'admin' | 'ketua_kelas' | 'sekretaris' | 'mahasiswa',
-      npm: profile.nim, // NIM disimpan sebagai npm untuk kompatibilitas
+      npm: profile.nim,
       semester: profile.semester || 1,
       avatar: profile.avatar_url,
       createdAt: new Date(profile.created_at),
@@ -80,7 +141,7 @@ export const loginWithNIM = async (nim: string, password: string): Promise<AuthR
         expires_at: authData.session.expires_at,
         user: user
       }), {
-        expires: 7, // 7 hari
+        expires: 7,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax'
       });
@@ -105,11 +166,22 @@ export const getCurrentUser = async (): Promise<User | null> => {
     // Cek cookie terlebih dahulu
     const sessionCookie = Cookies.get('supabase-session');
     if (sessionCookie) {
-      const sessionData = JSON.parse(sessionCookie);
-      
-      // Cek apakah session masih valid
-      if (sessionData.expires_at && new Date(sessionData.expires_at * 1000) > new Date()) {
-        return sessionData.user;
+      try {
+        const sessionData = JSON.parse(sessionCookie);
+        
+        // Cek apakah session masih valid
+        if (sessionData.expires_at && new Date(sessionData.expires_at * 1000) > new Date()) {
+          // Set session ke Supabase client
+          await supabase.auth.setSession({
+            access_token: sessionData.access_token,
+            refresh_token: sessionData.refresh_token
+          });
+          
+          return sessionData.user;
+        }
+      } catch (e) {
+        console.error('Error parsing session cookie:', e);
+        Cookies.remove('supabase-session');
       }
     }
 
@@ -120,14 +192,41 @@ export const getCurrentUser = async (): Promise<User | null> => {
       return null;
     }
 
-    // Ambil data profile terbaru
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', session.user.id)
-      .single();
+    // Ambil data profile terbaru dengan berbagai cara
+    let profile = null;
+    let profileError = null;
+
+    // Coba dengan query biasa
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+      
+      profile = data;
+      profileError = error;
+    } catch (e) {
+      profileError = e;
+    }
+
+    // Jika gagal, coba dengan RPC function
+    if (profileError || !profile) {
+      try {
+        const { data: profileRpc, error: rpcError } = await supabase
+          .rpc('get_user_profile', { user_id: session.user.id });
+        
+        if (!rpcError && profileRpc) {
+          profile = profileRpc;
+          profileError = null;
+        }
+      } catch (e) {
+        console.error('RPC error:', e);
+      }
+    }
 
     if (profileError || !profile) {
+      console.error('Profile error:', profileError);
       return null;
     }
 
@@ -174,6 +273,7 @@ export const logout = async (): Promise<void> => {
     // Hapus dari localStorage juga
     if (typeof window !== 'undefined') {
       localStorage.removeItem('supabase.auth.token');
+      localStorage.clear();
     }
   } catch (error) {
     console.error('Logout error:', error);
@@ -219,6 +319,9 @@ export const registerUser = async (userData: {
         error: 'Registrasi gagal'
       };
     }
+
+    // Tunggu sebentar untuk trigger berjalan
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Jika registrasi berhasil, ambil data profile
     const { data: profile, error: profileError } = await supabase

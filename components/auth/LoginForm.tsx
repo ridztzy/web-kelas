@@ -9,8 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { loginWithNIM } from '@/lib/auth-supabase';
-import { GraduationCap, Sun, Moon, Eye, EyeOff } from 'lucide-react';
+import { loginWithNIM, testSupabaseConnection } from '@/lib/auth-supabase';
+import { GraduationCap, Sun, Moon, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 export default function LoginForm() {
   const [nim, setNim] = useState('');
@@ -18,25 +18,52 @@ export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [connectionTested, setConnectionTested] = useState(false);
   const { setUser } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
+
+  const testConnection = async () => {
+    if (connectionTested) return;
+    
+    try {
+      const isConnected = await testSupabaseConnection();
+      if (!isConnected) {
+        setError('Koneksi ke database bermasalah. Silakan coba lagi.');
+      }
+      setConnectionTested(true);
+    } catch (error) {
+      console.error('Connection test error:', error);
+      setError('Gagal menguji koneksi database.');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
+    // Test connection first
+    await testConnection();
+
     try {
+      console.log('Attempting login with NIM:', nim);
+      
       const result = await loginWithNIM(nim, password);
+      
+      console.log('Login result:', result);
+      
       if (result.user) {
+        console.log('Login successful, setting user:', result.user);
         setUser(result.user);
         router.push('/dashboard');
       } else {
+        console.error('Login failed:', result.error);
         setError(result.error || 'NIM atau password salah');
       }
     } catch (err) {
-      setError('Terjadi kesalahan saat login');
+      console.error('Login exception:', err);
+      setError('Terjadi kesalahan saat login. Silakan coba lagi.');
     } finally {
       setIsLoading(false);
     }
@@ -48,6 +75,33 @@ export default function LoginForm() {
     { nim: '2021003', role: 'Sekretaris' },
     { nim: '2021004', role: 'Mahasiswa' }
   ];
+
+  const handleDemoLogin = async (demoNim: string) => {
+    setNim(demoNim);
+    setPassword('123456');
+    
+    // Auto submit after setting values
+    setTimeout(async () => {
+      setError('');
+      setIsLoading(true);
+
+      try {
+        const result = await loginWithNIM(demoNim, '123456');
+        
+        if (result.user) {
+          setUser(result.user);
+          router.push('/dashboard');
+        } else {
+          setError(result.error || 'Login demo gagal');
+        }
+      } catch (err) {
+        console.error('Demo login error:', err);
+        setError('Terjadi kesalahan saat login demo');
+      } finally {
+        setIsLoading(false);
+      }
+    }, 100);
+  };
 
   return (
     <div className="w-full max-w-md space-y-6">
@@ -80,6 +134,7 @@ export default function LoginForm() {
         <CardContent className="space-y-4">
           {error && (
             <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
@@ -94,6 +149,7 @@ export default function LoginForm() {
                 onChange={(e) => setNim(e.target.value)}
                 placeholder="2021001"
                 required
+                disabled={isLoading}
               />
             </div>
             
@@ -107,6 +163,7 @@ export default function LoginForm() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Masukkan password"
                   required
+                  disabled={isLoading}
                 />
                 <Button
                   type="button"
@@ -114,6 +171,7 @@ export default function LoginForm() {
                   size="sm"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-2 top-1/2 transform -translate-y-1/2"
+                  disabled={isLoading}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </Button>
@@ -143,9 +201,20 @@ export default function LoginForm() {
             {demoAccounts.map((account, index) => (
               <div key={index} className="flex justify-between items-center">
                 <span className="text-gray-700 dark:text-gray-300">NIM: {account.nim}</span>
-                <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
-                  {account.role}
-                </span>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                    {account.role}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDemoLogin(account.nim)}
+                    disabled={isLoading}
+                    className="text-xs px-2 py-1 h-6"
+                  >
+                    Login
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
