@@ -32,13 +32,24 @@ import {
   Globe,
   Lock,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  KeyRound, MessageSquare, AlertCircle
 } from 'lucide-react';
+
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function SettingsPage() {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [showPassword, setShowPassword] = useState(false);
+
+  const [newEmail, setNewEmail] = useState('');
+const [verificationCode, setVerificationCode] = useState('');
+const [codeSent, setCodeSent] = useState(false);
+const [isVerifying, setIsVerifying] = useState(false);
+const [verificationMethod, setVerificationMethod] = useState(''); // 'email' atau 'whatsapp'
+const [feedbackMessage, setFeedbackMessage] = useState({ type: '', text: '' }); // Untuk notifikasi
+
   
   // Profile settings
   const [profileSettings, setProfileSettings] = useState({
@@ -87,9 +98,58 @@ export default function SettingsPage() {
 
   const canManageSystem = hasPermission(user?.role || '', ['admin']);
 
-  const handleSaveProfile = () => {
-    console.log('Saving profile settings:', profileSettings);
-  };
+const handleSendVerificationCode = async (method: 'email' | 'whatsapp') => {
+  if (!newEmail) {
+    setFeedbackMessage({ type: 'error', text: 'Email baru tidak boleh kosong.' });
+    return;
+  }
+  
+  setIsVerifying(true);
+  setFeedbackMessage({ type: '', text: '' });
+  console.log(`Mengirim kode verifikasi ke ${newEmail} via ${method}...`);
+  
+  // Simulasi pengiriman kode
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  
+  setCodeSent(true);
+  setVerificationMethod(method);
+  setIsVerifying(false);
+  setFeedbackMessage({ type: 'success', text: `Kode verifikasi telah dikirim ke ${method === 'email' ? newEmail : 'nomor WhatsApp Anda'}.` });
+};
+
+const handleVerifyAndChangeEmail = async () => {
+  if (!verificationCode) {
+    setFeedbackMessage({ type: 'error', text: 'Kode verifikasi tidak boleh kosong.' });
+    return;
+  }
+
+  setIsVerifying(true);
+  setFeedbackMessage({ type: '', text: '' });
+  console.log(`Memverifikasi kode ${verificationCode} untuk email ${newEmail}...`);
+
+  // Simulasi verifikasi kode
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  
+  // Jika berhasil
+  // setProfileSettings(prev => ({ ...prev, email: newEmail })); // Update email di state utama
+  setFeedbackMessage({ type: 'success', text: 'Email berhasil diperbarui!' });
+  
+  // Reset state ganti email
+  setTimeout(() => {
+      setNewEmail('');
+      setVerificationCode('');
+      setCodeSent(false);
+      setIsVerifying(false);
+      setVerificationMethod('');
+      setFeedbackMessage({ type: '', text: '' });
+  }, 2000);
+};
+
+const handleSaveProfile = () => {
+    // Logika untuk menyimpan data profil lainnya (nama, bio, dll)
+    console.log("Menyimpan perubahan profil...", profileSettings);
+    // Tampilkan notifikasi sukses
+}
 
   const handleSaveSecurity = () => {
     console.log('Saving security settings:', securitySettings);
@@ -138,85 +198,138 @@ export default function SettingsPage() {
           
           <TabsContent value="profile" className="space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <User className="w-5 h-5 mr-2" />
-                  Informasi Profil
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <CardHeader>
+      <CardTitle className="flex items-center">
+        <User className="w-5 h-5 mr-2" />
+        Informasi Profil
+      </CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="name">Nama Lengkap</Label>
+          <Input id="name" value={profileSettings.name} onChange={(e) => setProfileSettings({...profileSettings, name: e.target.value})} />
+        </div>
+        
+        <div>
+          <Label htmlFor="email">Email Saat Ini</Label>
+          {/* Email dibuat disabled */}
+          <Input id="email" type="email" value={profileSettings.email} disabled />
+          <p className="text-xs text-muted-foreground mt-1">Email default tidak bisa diubah. Gunakan form di bawah untuk mengganti.</p>
+        </div>
+        
+        <div>
+          <Label htmlFor="nim">NIM</Label>
+          <Input id="nim" value={profileSettings.nim} disabled />
+        </div>
+        
+        <div>
+          <Label htmlFor="semester">Semester</Label>
+          <Select value={profileSettings.semester.toString()} onValueChange={(value) => setProfileSettings({...profileSettings, semester: parseInt(value)})}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {[1,2,3,4,5,6,7,8].map(sem => <SelectItem key={sem} value={sem.toString()}>Semester {sem}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div>
+          <Label htmlFor="phone">Nomor Telepon (WhatsApp)</Label>
+          <Input id="phone" value={profileSettings.phone} onChange={(e) => setProfileSettings({...profileSettings, phone: e.target.value})} placeholder="+62 xxx-xxxx-xxxx" />
+        </div>
+      </div>
+      
+      <div>
+        <Label htmlFor="bio">Bio</Label>
+        <Textarea id="bio" value={profileSettings.bio} onChange={(e) => setProfileSettings({...profileSettings, bio: e.target.value})} placeholder="Ceritakan sedikit tentang diri Anda..." rows={3} />
+      </div>
+      
+      <Button onClick={handleSaveProfile}>
+        <Save className="w-4 h-4 mr-2" />
+        Simpan Perubahan Profil
+      </Button>
+    </CardContent>
+  </Card>
+
+  {/* [BARU] CARD UNTUK GANTI EMAIL DENGAN VERIFIKASI */}
+  <Card>
+      <CardHeader>
+          <CardTitle className="flex items-center">
+              <Mail className="w-5 h-5 mr-2" />
+              Ganti Alamat Email
+          </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+          {/* Tampilkan notifikasi feedback */}
+          {feedbackMessage.text && (
+              <Alert variant={feedbackMessage.type === 'error' ? 'destructive' : 'default'} className={feedbackMessage.type === 'success' ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' : ''}>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>{feedbackMessage.type === 'error' ? 'Error' : 'Informasi'}</AlertTitle>
+                  <AlertDescription>{feedbackMessage.text}</AlertDescription>
+              </Alert>
+          )}
+
+          {/* Bagian 1: Input Email Baru & Pilihan Kirim Kode */}
+          {!codeSent && (
+              <div className="space-y-4">
                   <div>
-                    <Label htmlFor="name">Nama Lengkap</Label>
-                    <Input
-                      id="name"
-                      value={profileSettings.name}
-                      onChange={(e) => setProfileSettings({...profileSettings, name: e.target.value})}
-                    />
+                      <Label htmlFor="new-email">Email Baru</Label>
+                      <Input
+                          id="new-email"
+                          type="email"
+                          value={newEmail}
+                          onChange={(e) => setNewEmail(e.target.value)}
+                          placeholder="Masukkan email baru yang aktif"
+                          disabled={isVerifying}
+                      />
                   </div>
-                  
+                  <div className="flex flex-col sm:flex-row gap-2">
+                      <Button
+                          onClick={() => handleSendVerificationCode('email')}
+                          disabled={!newEmail || isVerifying}
+                          className="w-full"
+                      >
+                          <Mail className="w-4 h-4 mr-2" />
+                          {isVerifying && verificationMethod === 'email' ? 'Mengirim...' : 'Kirim Kode ke Email Baru'}
+                      </Button>
+                      <Button
+                          onClick={() => handleSendVerificationCode('whatsapp')}
+                          disabled={!newEmail || isVerifying}
+                          className="w-full"
+                          variant="secondary"
+                      >
+                          <MessageSquare className="w-4 h-4 mr-2" />
+                           {isVerifying && verificationMethod === 'whatsapp' ? 'Mengirim...' : 'Kirim Kode ke WhatsApp'}
+                      </Button>
+                  </div>
+              </div>
+          )}
+
+          {/* Bagian 2: Input Kode Verifikasi */}
+          {codeSent && (
+              <div className="space-y-4">
+                   <div>
+                      <Label htmlFor="new-email-disabled">Email Baru</Label>
+                      <Input id="new-email-disabled" value={newEmail} disabled />
+                  </div>
                   <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={profileSettings.email}
-                      onChange={(e) => setProfileSettings({...profileSettings, email: e.target.value})}
-                    />
+                      <Label htmlFor="verification-code">Kode Verifikasi</Label>
+                      <Input
+                          id="verification-code"
+                          value={verificationCode}
+                          onChange={(e) => setVerificationCode(e.target.value)}
+                          placeholder="Masukkan 6 digit kode"
+                          disabled={isVerifying}
+                      />
                   </div>
-                  
-                  <div>
-                    <Label htmlFor="nim">NIM</Label>
-                    <Input
-                      id="nim"
-                      value={profileSettings.nim}
-                      onChange={(e) => setProfileSettings({...profileSettings, nim: e.target.value})}
-                      disabled
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="semester">Semester</Label>
-                    <Select value={profileSettings.semester.toString()} onValueChange={(value) => setProfileSettings({...profileSettings, semester: parseInt(value)})}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[1,2,3,4,5,6,7,8].map(sem => (
-                          <SelectItem key={sem} value={sem.toString()}>Semester {sem}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="phone">Nomor Telepon</Label>
-                    <Input
-                      id="phone"
-                      value={profileSettings.phone}
-                      onChange={(e) => setProfileSettings({...profileSettings, phone: e.target.value})}
-                      placeholder="+62 xxx-xxxx-xxxx"
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <Label htmlFor="bio">Bio</Label>
-                  <Textarea
-                    id="bio"
-                    value={profileSettings.bio}
-                    onChange={(e) => setProfileSettings({...profileSettings, bio: e.target.value})}
-                    placeholder="Ceritakan sedikit tentang diri Anda..."
-                    rows={3}
-                  />
-                </div>
-                
-                <Button onClick={handleSaveProfile}>
-                  <Save className="w-4 h-4 mr-2" />
-                  Simpan Perubahan
-                </Button>
-              </CardContent>
-            </Card>
+                  <Button onClick={handleVerifyAndChangeEmail} disabled={!verificationCode || isVerifying} className="w-full">
+                      <KeyRound className="w-4 h-4 mr-2" />
+                      {isVerifying ? 'Memverifikasi...' : 'Verifikasi & Ganti Email'}
+                  </Button>
+              </div>
+          )}
+      </CardContent>
+  </Card>
 
             <Card>
               <CardHeader>

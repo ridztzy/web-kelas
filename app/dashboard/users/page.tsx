@@ -50,7 +50,26 @@ import {
   Key,
   Loader2,
   RefreshCw,
+  MoreHorizontal,
 } from "lucide-react";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
 
 export default function UsersPage() {
   const { user } = useAuth();
@@ -66,6 +85,8 @@ export default function UsersPage() {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<{ id: string; name: string } | null>(null);
   const [newUser, setNewUser] = useState({
     nim: "",
     name: "",
@@ -115,28 +136,35 @@ export default function UsersPage() {
   }
 
   // Load users data
-  const loadUsers = async () => {
+const loadUsers = async () => {
     setLoading(true);
     try {
-      const result = await getAllUsers();
+      const response = await fetch('/api/users');
+      const result = await response.json();
 
-      // Log di sini untuk melihat apa sebenarnya isi 'result'
-      console.log("Hasil dari getAllUsers:", result);
-
-      if (result.data) {
-        setUsers(result.data as User[]);
-      } else {
-        toast({
-          title: "Error",
-          description: result.error || "Gagal memuat data users",
-          variant: "destructive",
-        });
+      if (!response.ok) {
+        throw new Error(result.error || 'Gagal mengambil data pengguna');
       }
-    } catch (error) {
+
+      // Pastikan data yang diterima adalah array
+      if (Array.isArray(result.data)) {
+        // Mengonversi string tanggal menjadi objek Date
+        const usersWithDateObjects = result.data.map((user: any) => ({
+          ...user,
+          createdAt: new Date(user.created_at),
+          updatedAt: new Date(user.updated_at),
+          lastSignInAt: user.last_sign_in_at ? new Date(user.last_sign_in_at) : undefined,
+        }));
+        setUsers(usersWithDateObjects as User[]);
+      } else {
+        throw new Error('Format data yang diterima tidak sesuai');
+      }
+
+    } catch (error: any) {
       console.error("Terjadi kesalahan saat memuat data:", error);
       toast({
         title: "Error",
-        description: "Terjadi kesalahan fatal saat memuat data",
+        description: error.message || "Terjadi kesalahan fatal saat memuat data",
         variant: "destructive",
       });
     } finally {
@@ -197,11 +225,11 @@ export default function UsersPage() {
     }
   };
 
-  const handleCreateUser = async () => {
+const handleCreateUser = async () => {
     if (!newUser.nim || !newUser.name || !newUser.email || !newUser.password) {
       toast({
         title: "Error",
-        description: "Mohon lengkapi semua field yang diperlukan",
+        description: "NIM, Nama, Email, dan Password tidak boleh kosong.",
         variant: "destructive",
       });
       return;
@@ -209,45 +237,43 @@ export default function UsersPage() {
 
     setActionLoading("create");
     try {
-      const result = await createUserByAdmin({
-        nim: newUser.nim,
-        name: newUser.name,
-        email: newUser.email,
-        password: newUser.password,
-        role: newUser.role,
-        semester: newUser.semester,
-        phone: newUser.phone || undefined,
-        bio: newUser.bio || undefined,
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newUser),
       });
 
-      if (result.success) {
-        toast({
-          title: "Sukses",
-          description: "User berhasil dibuat",
-        });
-        setShowCreateDialog(false);
-        setNewUser({
-          nim: "",
-          name: "",
-          email: "",
-          role: "mahasiswa",
-          semester: 1,
-          password: "",
-          phone: "",
-          bio: "",
-        });
-        loadUsers(); // Reload data
-      } else {
-        toast({
-          title: "Error",
-          description: result.error || "Gagal membuat user",
-          variant: "destructive",
-        });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Terjadi kesalahan di server.');
       }
-    } catch (error) {
+
       toast({
-        title: "Error",
-        description: "Terjadi kesalahan saat membuat user",
+        title: "Sukses",
+        description: "Pengguna baru berhasil dibuat.",
+      });
+
+      setShowCreateDialog(false);
+      setNewUser({
+        nim: "",
+        name: "",
+        email: "",
+        role: "mahasiswa",
+        semester: 1,
+        password: "",
+        phone: "",
+        bio: "",
+      });
+      loadUsers(); // Muat ulang data pengguna untuk menampilkan pengguna baru
+      console.log('data baru', setNewUser)
+
+    } catch (error: any) {
+      toast({
+        title: "Gagal Membuat Pengguna",
+        description: error.message,
         variant: "destructive",
       });
     } finally {
@@ -273,27 +299,36 @@ export default function UsersPage() {
 
     setActionLoading("update");
     try {
-      const result = await updateUserByAdmin(editingUser.id, editUser);
+      // Panggil API route PATCH
+      const response = await fetch('/api/users', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: editingUser.id,
+          ...editUser, // Kirim semua data dari state editUser
+        }),
+      });
 
-      if (result.success) {
-        toast({
-          title: "Sukses",
-          description: "User berhasil diupdate",
-        });
-        setShowEditDialog(false);
-        setEditingUser(null);
-        loadUsers(); // Reload data
-      } else {
-        toast({
-          title: "Error",
-          description: result.error || "Gagal update user",
-          variant: "destructive",
-        });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Gagal memperbarui pengguna.');
       }
-    } catch (error) {
+
       toast({
-        title: "Error",
-        description: "Terjadi kesalahan saat update user",
+        title: "Sukses",
+        description: "User berhasil diupdate",
+      });
+      setShowEditDialog(false);
+      setEditingUser(null);
+      loadUsers(); // Muat ulang data untuk menampilkan perubahan
+
+    } catch (error: any) {
+      toast({
+        title: "Error Saat Memperbarui",
+        description: error.message,
         variant: "destructive",
       });
     } finally {
@@ -301,41 +336,45 @@ export default function UsersPage() {
     }
   };
 
-  const handleDeleteUser = async (userId: string, userName: string) => {
-    if (
-      !confirm(
-        `Apakah Anda yakin ingin menghapus user "${userName}"? Tindakan ini tidak dapat dibatalkan.`
-      )
-    ) {
-      return;
-    }
+  const proceedWithDelete = async () => {
+    if (!userToDelete) return;
 
-    setActionLoading(`delete-${userId}`);
+    setActionLoading(`delete-${userToDelete.id}`);
     try {
-      const result = await deleteUserByAdmin(userId);
+      const response = await fetch(`/api/users?id=${userToDelete.id}`, {
+        method: 'DELETE',
+      });
 
-      if (result.success) {
-        toast({
-          title: "Sukses",
-          description: "User berhasil dihapus",
-        });
-        loadUsers(); // Reload data
-      } else {
-        toast({
-          title: "Error",
-          description: result.error || "Gagal menghapus user",
-          variant: "destructive",
-        });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Gagal menghapus pengguna.');
       }
-    } catch (error) {
+
       toast({
-        title: "Error",
-        description: "Terjadi kesalahan saat menghapus user",
+        title: "Sukses",
+        description: `Pengguna "${userToDelete.name}" berhasil dihapus.`,
+      });
+
+      loadUsers(); // Muat ulang data
+    
+    } catch (error: any) {
+      toast({
+        title: "Error Saat Menghapus",
+        description: error.message,
         variant: "destructive",
       });
     } finally {
+      // Tutup dialog dan reset state
+      setShowDeleteConfirm(false);
+      setUserToDelete(null);
       setActionLoading(null);
     }
+  };
+  const handleDeleteUser = (userId: string, userName: string) => {
+    // Simpan data user yang akan dihapus dan tampilkan dialog
+    setUserToDelete({ id: userId, name: userName });
+    setShowDeleteConfirm(true);
   };
 
   const handleResetPassword = async () => {
@@ -350,27 +389,36 @@ export default function UsersPage() {
 
     setActionLoading("reset-password");
     try {
-      const result = await resetUserPassword(selectedUserId, newPassword);
+      // Panggil API route PUT
+      const response = await fetch('/api/users', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: selectedUserId,
+          newPassword: newPassword,
+        }),
+      });
 
-      if (result.success) {
-        toast({
-          title: "Sukses",
-          description: "Password berhasil direset",
-        });
-        setShowPasswordDialog(false);
-        setNewPassword("");
-        setSelectedUserId("");
-      } else {
-        toast({
-          title: "Error",
-          description: result.error || "Gagal reset password",
-          variant: "destructive",
-        });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Gagal mereset password.');
       }
-    } catch (error) {
+
+      toast({
+        title: "Sukses",
+        description: "Password berhasil direset",
+      });
+      setShowPasswordDialog(false);
+      setNewPassword("");
+      setSelectedUserId("");
+
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Terjadi kesalahan saat reset password",
+        description: error.message,
         variant: "destructive",
       });
     } finally {
@@ -596,147 +644,195 @@ export default function UsersPage() {
             </p>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={loadUsers}
-              disabled={loading}
-            >
-              <RefreshCw
-                className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
-              />
-              Refresh
-            </Button>
-            <Button variant="outline" size="sm">
-              <Download className="w-4 h-4 mr-2" />
-              Export
-            </Button>
-            <Button variant="outline" size="sm">
-              <Upload className="w-4 h-4 mr-2" />
-              Import
-            </Button>
-            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Tambah Pengguna
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Tambah Pengguna Baru</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="nim">NIM</Label>
-                    <Input
-                      id="nim"
-                      value={newUser.nim}
-                      onChange={(e) =>
-                        setNewUser({ ...newUser, nim: e.target.value })
-                      }
-                      placeholder="2021001"
-                    />
-                  </div>
+        
+      {/* Primary Actions - Always visible */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+  {/* Primary Actions - Modified for better mobile layout */}
+  <div className="flex items-center gap-2 flex-wrap">
+    {/* Refresh Button - Always show icon, show text when possible */}
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={loadUsers}
+      disabled={loading}
+      className="flex-shrink-0"
+    >
+      <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+      <span className="sr-only xs:not-sr-only xs:ml-2">Refresh</span>
+    </Button>
+    
+    {/* Desktop: Show all buttons */}
+    <div className="hidden md:flex items-center gap-2">
+      <Button variant="outline" size="sm">
+        <Download className="w-4 h-4 mr-2" />
+        Export
+      </Button>
+      <Button variant="outline" size="sm">
+        <Upload className="w-4 h-4 mr-2" />
+        Import
+      </Button>
+    </div>
 
-                  <div>
-                    <Label htmlFor="name">Nama Lengkap</Label>
-                    <Input
-                      id="name"
-                      value={newUser.name}
-                      onChange={(e) =>
-                        setNewUser({ ...newUser, name: e.target.value })
-                      }
-                      placeholder="Nama lengkap"
-                    />
-                  </div>
+    {/* Mobile: Better dropdown trigger */}
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="md:hidden px-3">
+          <MoreHorizontal className="w-4 h-4" />
+          <span className="sr-only">More actions</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem>
+          <Download className="w-4 h-4 mr-2" />
+          Export
+        </DropdownMenuItem>
+        <DropdownMenuItem>
+          <Upload className="w-4 h-4 mr-2" />
+          Import
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  </div>
 
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={newUser.email}
-                      onChange={(e) =>
-                        setNewUser({ ...newUser, email: e.target.value })
-                      }
-                      placeholder="email@student.ac.id"
-                    />
-                  </div>
+  {/* Primary CTA - Improved mobile layout */}
+  <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+    <DialogTrigger asChild>
+      <Button className="w-full sm:w-auto flex-shrink-0">
+        <Plus className="w-4 h-4" />
+        <span className="ml-2">Tambah Pengguna</span>
+      </Button>
+    </DialogTrigger>
+        <DialogContent className="w-[95vw] max-w-md mx-auto max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Tambah Pengguna Baru</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <Label htmlFor="nim">NIM</Label>
+                <Input
+                  id="nim"
+                  value={newUser.nim}
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, nim: e.target.value })
+                  }
+                  placeholder="2021001"
+                  className="mt-1"
+                />
+              </div>
 
-                  <div>
-                    <Label htmlFor="password">Password</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={newUser.password}
-                      onChange={(e) =>
-                        setNewUser({ ...newUser, password: e.target.value })
-                      }
-                      placeholder="Password"
-                    />
-                  </div>
+              <div>
+                <Label htmlFor="name">Nama Lengkap</Label>
+                <Input
+                  id="name"
+                  value={newUser.name}
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, name: e.target.value })
+                  }
+                  placeholder="Nama lengkap"
+                  className="mt-1"
+                />
+              </div>
 
-                  <div>
-                    <Label htmlFor="role">Role</Label>
-                    <Select
-                      value={newUser.role}
-                      onValueChange={(value: any) =>
-                        setNewUser({ ...newUser, role: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="mahasiswa">Mahasiswa</SelectItem>
-                        <SelectItem value="sekretaris">Sekretaris</SelectItem>
-                        <SelectItem value="ketua_kelas">Ketua Kelas</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={newUser.email}
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, email: e.target.value })
+                  }
+                  placeholder="email@student.ac.id"
+                  className="mt-1"
+                />
+              </div>
 
-                  <div>
-                    <Label htmlFor="semester">Semester</Label>
-                    <Select
-                      value={newUser.semester.toString()}
-                      onValueChange={(value) =>
-                        setNewUser({ ...newUser, semester: parseInt(value) })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
-                          <SelectItem key={sem} value={sem.toString()}>
-                            Semester {sem}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+              <div>
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={newUser.password}
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, password: e.target.value })
+                  }
+                  placeholder="Password"
+                  className="mt-1"
+                />
+              </div>
 
-                  <Button
-                    onClick={handleCreateUser}
-                    className="w-full"
-                    disabled={actionLoading === "create"}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="role">Role</Label>
+                  <Select
+                    value={newUser.role}
+                    onValueChange={(value: any) =>
+                      setNewUser({ ...newUser, role: value })
+                    }
                   >
-                    {actionLoading === "create" ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Membuat...
-                      </>
-                    ) : (
-                      "Simpan Pengguna"
-                    )}
-                  </Button>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="mahasiswa">Mahasiswa</SelectItem>
+                      <SelectItem value="sekretaris">Sekretaris</SelectItem>
+                      <SelectItem value="ketua_kelas">Ketua Kelas</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              </DialogContent>
-            </Dialog>
+
+                <div>
+                  <Label htmlFor="semester">Semester</Label>
+                  <Select
+                    value={newUser.semester.toString()}
+                    onValueChange={(value) =>
+                      setNewUser({ ...newUser, semester: parseInt(value) })
+                    }
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
+                        <SelectItem key={sem} value={sem.toString()}>
+                          Semester {sem}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setShowCreateDialog(false)}
+                className="w-full sm:w-auto"
+              >
+                Batal
+              </Button>
+              <Button
+                onClick={handleCreateUser}
+                className="w-full sm:w-auto"
+                disabled={actionLoading === "create"}
+              >
+                {actionLoading === "create" ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Membuat...
+                  </>
+                ) : (
+                  "Simpan Pengguna"
+                )}
+              </Button>
+            </div>
           </div>
+        </DialogContent>
+      </Dialog>
+    </div>
         </div>
 
         {/* Edit User Dialog */}
@@ -1028,6 +1124,39 @@ export default function UsersPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+          <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Apakah Anda Benar-Benar Yakin?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Tindakan ini tidak dapat dibatalkan. Ini akan menghapus pengguna
+            <strong className="mx-1">{userToDelete?.name}</strong>
+            secara permanen dari server.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setUserToDelete(null)}>
+            Batal
+          </AlertDialogCancel>
+          <AlertDialogAction
+            onClick={proceedWithDelete}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            disabled={!!actionLoading}
+          >
+            {actionLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Menghapus...
+              </>
+            ) : (
+              "Ya, Hapus Pengguna"
+            )}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
     </DashboardLayout>
   );
 }

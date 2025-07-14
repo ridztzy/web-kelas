@@ -16,21 +16,24 @@ import {
   Calendar,
   Settings,
   LogOut,
-  Menu,
-  X,
   Sun,
   Moon,
   Bell,
   UserCircle,
   BarChart3,
   GraduationCap,
-  ChevronDown,
+  ChevronLeft,
   ChevronRight
 } from 'lucide-react';
 
-export default function Sidebar() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+interface SidebarProps {
+  isOpen: boolean;
+  setIsOpen: (isOpen: boolean) => void;
+  isCollapsed: boolean;
+  setIsCollapsed: (isCollapsed: boolean) => void;
+}
+
+export default function Sidebar({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }: SidebarProps) {
   const { user, setUser } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
@@ -66,7 +69,7 @@ export default function Sidebar() {
       variant={pathname === item.path ? 'default' : 'ghost'}
       className={`w-full justify-start relative group transition-all duration-200 ${
         isCollapsed ? 'px-2' : 'px-3'
-      }`}
+      } ${pathname === item.path ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}
       onClick={() => {
         router.push(item.path);
         setIsOpen(false);
@@ -75,9 +78,9 @@ export default function Sidebar() {
       <item.icon className={`w-5 h-5 ${isCollapsed ? '' : 'mr-3'} flex-shrink-0`} />
       {!isCollapsed && (
         <>
-          <span className="truncate">{item.label}</span>
+          <span className="truncate text-left flex-1">{item.label}</span>
           {item.badge && (
-            <Badge className="ml-auto text-xs px-1.5 py-0.5 min-w-[20px] h-5">
+            <Badge className="ml-2 text-xs px-1.5 py-0.5 min-w-[20px] h-5 flex items-center justify-center">
               {item.badge}
             </Badge>
           )}
@@ -86,7 +89,7 @@ export default function Sidebar() {
       
       {/* Tooltip for collapsed state */}
       {isCollapsed && (
-        <div className="absolute left-full ml-2 px-2 py-1 bg-popover text-popover-foreground text-sm rounded-md shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 whitespace-nowrap">
+        <div className="absolute left-full ml-2 px-2 py-1 bg-popover text-popover-foreground text-sm rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 whitespace-nowrap border border-border">
           {item.label}
           {item.badge && (
             <Badge className="ml-2 text-xs px-1.5 py-0.5">
@@ -100,20 +103,10 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Mobile Menu Button */}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="md:hidden fixed top-4 left-4 z-50 bg-background/80 backdrop-blur-sm"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-      </Button>
-
-      {/* Overlay */}
+      {/* Overlay for mobile */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm"
           onClick={() => setIsOpen(false)}
         />
       )}
@@ -125,17 +118,20 @@ export default function Sidebar() {
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
         md:translate-x-0 md:static md:z-0
         ${isCollapsed ? 'w-16' : 'w-64'}
+        shadow-xl md:shadow-none
       `}>
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className={`p-4 border-b border-border ${isCollapsed ? 'px-2' : ''}`}>
             <div className="flex items-center justify-between">
-              <div className={`flex items-center space-x-2 ${isCollapsed ? 'justify-center' : ''}`}>
-                <GraduationCap className="w-8 h-8 text-primary flex-shrink-0" />
+              <div className={`flex items-center space-x-3 ${isCollapsed ? 'justify-center' : ''}`}>
+                <div className="flex-shrink-0">
+                  <GraduationCap className="w-8 h-8 text-primary" />
+                </div>
                 {!isCollapsed && (
-                  <div>
-                    <h1 className="text-lg font-bold">Sistem Kelas</h1>
-                    <p className="text-sm text-muted-foreground">Ilmu Komputer</p>
+                  <div className="flex-1 min-w-0">
+                    <h1 className="text-lg font-bold truncate">Sistem Kelas</h1>
+                    <p className="text-sm text-muted-foreground truncate">Ilmu Komputer</p>
                   </div>
                 )}
               </div>
@@ -144,13 +140,13 @@ export default function Sidebar() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="hidden md:flex p-1.5"
+                className="hidden md:flex p-1.5 hover:bg-accent"
                 onClick={() => setIsCollapsed(!isCollapsed)}
               >
                 {isCollapsed ? (
                   <ChevronRight className="w-4 h-4" />
                 ) : (
-                  <ChevronDown className="w-4 h-4 rotate-[-90deg]" />
+                  <ChevronLeft className="w-4 h-4" />
                 )}
               </Button>
             </div>
@@ -159,15 +155,15 @@ export default function Sidebar() {
           {/* User Info */}
           <div className={`p-4 border-b border-border ${isCollapsed ? 'px-2' : ''}`}>
             <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3'}`}>
-              <div className="relative">
-                <UserCircle className="w-10 h-10 text-primary flex-shrink-0" />
+              <div className="relative flex-shrink-0">
+                <UserCircle className="w-10 h-10 text-primary" />
                 <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
               </div>
               {!isCollapsed && (
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{user?.name}</p>
-                  <p className="text-xs text-muted-foreground capitalize">
-                    {user?.role?.replace('_', ' ')} • Semester {user?.semester}
+                  <p className="text-sm font-medium truncate">{user?.name || 'User'}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {user?.role?.replace('_', ' ') || 'Student'} • Semester {user?.semester || '1'}
                   </p>
                 </div>
               )}
@@ -175,17 +171,17 @@ export default function Sidebar() {
           </div>
 
           {/* Navigation */}
-          <nav className={`flex-1 p-4 space-y-1 overflow-y-auto ${isCollapsed ? 'px-2' : ''}`}>
-            {menuItems.map((item) => (
+          <nav className={`flex-1 p-4 space-y-2 overflow-y-auto ${isCollapsed ? 'px-2' : ''}`}>
+            {menuItems.map((item, index) => (
               <MenuItem key={item.path} item={item} />
             ))}
           </nav>
 
           {/* Footer */}
-          <div className={`p-4 border-t border-border space-y-1 ${isCollapsed ? 'px-2' : ''}`}>
+          <div className={`p-4 border-t border-border space-y-2 ${isCollapsed ? 'px-2' : ''}`}>
             <Button
               variant="ghost"
-              className={`w-full justify-start ${isCollapsed ? 'px-2' : ''}`}
+              className={`w-full justify-start hover:bg-accent ${isCollapsed ? 'px-2' : ''}`}
               onClick={toggleTheme}
             >
               {theme === 'light' ? (
@@ -193,7 +189,11 @@ export default function Sidebar() {
               ) : (
                 <Sun className={`w-5 h-5 ${isCollapsed ? '' : 'mr-3'} flex-shrink-0`} />
               )}
-              {!isCollapsed && (theme === 'light' ? 'Mode Gelap' : 'Mode Terang')}
+              {!isCollapsed && (
+                <span className="truncate">
+                  {theme === 'light' ? 'Mode Gelap' : 'Mode Terang'}
+                </span>
+              )}
             </Button>
             
             <Button
@@ -202,7 +202,7 @@ export default function Sidebar() {
               onClick={handleLogout}
             >
               <LogOut className={`w-5 h-5 ${isCollapsed ? '' : 'mr-3'} flex-shrink-0`} />
-              {!isCollapsed && 'Logout'}
+              {!isCollapsed && <span className="truncate">Logout</span>}
             </Button>
           </div>
         </div>

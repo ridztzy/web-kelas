@@ -143,17 +143,15 @@ export const getCurrentUser = async (): Promise<User | null> => {
 // Function untuk logout
 export const logout = async (): Promise<void> => {
   try {
-    // Logout dari Supabase
+    // 1. Logout dari Supabase. Ini sudah menangani pembersihan token di localStorage.
     await supabase.auth.signOut();
     
-    // Hapus cookie
+    // 2. Hapus cookie sesi kustom Anda. Ini adalah langkah penting.
     Cookies.remove('supabase-session');
+
+    // Tidak perlu localStorage.clear() atau removeItem() secara manual.
+    // signOut() sudah cukup.
     
-    // Hapus dari localStorage juga jika ada
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('supabase.auth.token');
-      localStorage.clear();
-    }
   } catch (error) {
     console.error('Logout error:', error);
   }

@@ -15,6 +15,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -47,9 +48,17 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div className="min-h-screen bg-background">
       <div className="flex h-screen overflow-hidden">
-        <Sidebar />
+        <Sidebar 
+          isOpen={sidebarOpen} 
+          setIsOpen={setSidebarOpen}
+          isCollapsed={sidebarCollapsed}
+          setIsCollapsed={setSidebarCollapsed}
+        />
         <div className="flex-1 flex flex-col overflow-hidden md:ml-0">
-          <Header />
+          <Header 
+            sidebarOpen={sidebarOpen}
+            setSidebarOpen={setSidebarOpen}
+          />
           <main className="flex-1 overflow-y-auto">
             <div className="p-6 max-w-7xl mx-auto">
               <div className="animate-fade-in">
