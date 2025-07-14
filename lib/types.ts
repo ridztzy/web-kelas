@@ -35,9 +35,16 @@ export interface ChatMessage {
   senderId: string;
   senderName: string;
   senderRole: string;
+  senderAvatar?: string;
   timestamp: Date;
   edited?: boolean;
   replyTo?: string;
+  type: 'text' | 'image' | 'file';
+  attachments?: string[];
+  fileName?: string;
+  fileUrl?: string;
+  fileSize?: number;
+  status: 'sent' | 'delivered' | 'read';
 }
 
 export interface Subject {

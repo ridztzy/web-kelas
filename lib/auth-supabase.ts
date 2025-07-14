@@ -107,34 +107,34 @@ export const loginWithNIM = async (nim: string, password: string): Promise<AuthR
 // Function untuk mendapatkan user saat ini dari cookie
 export const getCurrentUser = async (): Promise<User | null> => {
   try {
-    // Cek cookie terlebih dahulu
-    const sessionCookie = Cookies.get('supabase-session');
-    if (!sessionCookie) {
+    // Gunakan method standar Supabase untuk mendapatkan sesi
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+    if (sessionError || !session) {
       return null;
+    }
+    
+    // Jika ada sesi, ambil detail profil dari tabel 'profiles'
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', session.user.id)
+      .single();
+
+    if (profileError || !profileData) {
+        // Jika profil tidak ditemukan, paksa logout untuk membersihkan sesi aneh
+        await supabase.auth.signOut();
+        return null;
     }
 
-    try {
-      const sessionData = JSON.parse(sessionCookie);
-      
-      // Cek apakah session masih valid
-      if (sessionData.expires_at && new Date(sessionData.expires_at * 1000) > new Date()) {
-        // Set session ke Supabase client untuk RLS
-        await supabase.auth.setSession({
-          access_token: sessionData.access_token,
-          refresh_token: sessionData.refresh_token
-        });
-        
-        return sessionData.user;
-      } else {
-        // Session expired, hapus cookie
-        Cookies.remove('supabase-session');
-        return null;
-      }
-    } catch (e) {
-      console.error('Error parsing session cookie:', e);
-      Cookies.remove('supabase-session');
-      return null;
-    }
+    const user: User = {
+      ...profileData,
+      role: profileData.role,
+      createdAt: new Date(profileData.created_at),
+      updatedAt: new Date(profileData.updated_at),
+    };
+
+    return user;
 
   } catch (error) {
     console.error('Get current user error:', error);

@@ -80,6 +80,8 @@ export default function SettingsPage() {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [isSavingSecurity, setIsSavingSecurity] = useState(false);
+
   const [profileSettings, setProfileSettings] = useState({
     name: "",
     email: "",
@@ -319,8 +321,82 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSaveSecurity = () => {
-    console.log("Saving security settings:", securitySettings);
+  const handleSaveSecurity = async () => {
+    const { currentPassword, newPassword, confirmPassword } = securitySettings;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Semua field password harus diisi.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Password baru dan konfirmasi password tidak cocok.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password baru minimal harus 6 karakter.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!user) {
+        toast({ title: "Error", description: "User tidak ditemukan, silakan login ulang.", variant: "destructive" });
+        return;
+    }
+
+    setIsSavingSecurity(true);
+    try {
+      const response = await fetch("/api/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: user?.id,
+          currentPassword,
+          newPassword,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Gagal mengubah password.");
+      }
+
+      toast({
+        title: "Sukses!",
+        description: "Password Anda berhasil diperbarui.",
+      });
+
+      // Reset form
+      setSecuritySettings({
+        ...securitySettings,
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+      setShowPassword(false);
+    } catch (error: any) {
+      toast({
+        title: "Gagal",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingSecurity(false);
+    }
   };
 
   const handleSaveNotifications = () => {
@@ -781,12 +857,44 @@ export default function SettingsPage() {
                   />
                 </div>
 
-                <Button onClick={handleSaveSecurity}>
-                  <Save className="w-4 h-4 mr-2" />
-                  Ubah Password
+                <Button
+                  onClick={handleSaveSecurity}
+                  disabled={isSavingSecurity}
+                >
+                  {isSavingSecurity ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Menyimpan...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Ubah Password
+                    </>
+                  )}
                 </Button>
               </CardContent>
             </Card>
+
+
+<Card className="glass-effect shadow-lg border-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm">
+  <CardHeader>
+    <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white flex items-center space-x-2">
+      <Key className="w-5 h-5 text-orange-500" />
+      <span>Lupa Password?</span>
+    </CardTitle>
+  </CardHeader>
+  <CardContent>
+     <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Masukkan email Anda dan kami akan mengirimkan link untuk mereset password Anda.
+        </p>
+        {/* State dan handler untuk ini perlu ditambahkan */}
+        <Input type="email" placeholder="Email Anda" />
+        <Button className="w-full">Kirim Link Reset</Button>
+     </div>
+  </CardContent>
+</Card>
 
             <Card>
               <CardHeader>

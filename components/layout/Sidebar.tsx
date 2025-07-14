@@ -25,6 +25,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
+import Link from 'next/link';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -80,17 +81,19 @@ const handleLogout = async () => {
 
   menuItems.push({ icon: Settings, label: 'Pengaturan', path: '/dashboard/settings', badge: null });
 
-  const MenuItem = ({ item }: { item: any }) => (
+const MenuItem = ({ item }: { item: any }) => (
+  <Link href={item.path} passHref legacyBehavior>
     <Button
       variant={pathname === item.path ? 'default' : 'ghost'}
       className={`w-full justify-start relative group transition-all duration-200 ${
         isCollapsed ? 'px-2' : 'px-3'
       } ${pathname === item.path ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}
       onClick={() => {
-        router.push(item.path);
-        setIsOpen(false);
+        // HANYA JALANKAN FUNGSI TAMBAHAN DI SINI
+        setIsOpen(false); 
       }}
     >
+      {/* ... sisa kode kamu sudah benar ... */}
       <item.icon className={`w-5 h-5 ${isCollapsed ? '' : 'mr-3'} flex-shrink-0`} />
       {!isCollapsed && (
         <>
@@ -115,7 +118,8 @@ const handleLogout = async () => {
         </div>
       )}
     </Button>
-  );
+  </Link>
+);
 
   return (
     <>

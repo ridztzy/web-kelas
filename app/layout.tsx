@@ -4,6 +4,7 @@ import { Inter } from 'next/font/google';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { Toaster } from '@/components/ui/toaster';
+import NextTopLoader from 'nextjs-toploader';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -20,7 +21,12 @@ export default function RootLayout({
   return (
     <html lang="id">
       <body className={inter.className}>
-        <ThemeProvider>
+          <NextTopLoader
+  color="#3B82F6"
+  showSpinner={false}
+  zIndex={99999} // <-- TAMBAHKAN INI
+/>
+  <ThemeProvider>
           <AuthProvider>
             {children}
             <Toaster />
