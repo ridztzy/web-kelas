@@ -1,12 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Select,
   SelectContent,
@@ -45,6 +53,7 @@ import {
   MessageSquare,
   AlertCircle,
   Loader2,
+  Camera,
 } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -66,30 +75,37 @@ export default function SettingsPage() {
     text: "",
   }); // Untuk notifikasi
 
-const [profileSettings, setProfileSettings] = useState({
-  name: '',
-  email: '',
-  nim: '',
-  semester: 7,
-  phone: '',
-  bio: '',
-  avatar: '',
-});
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-useEffect(() => {
-  if (user) {
-    setProfileSettings({
-      name: user.name || '',
-      email: user.email || '',
-      nim: user.nim || '',
-      semester: user.semester || 7,
-      phone: user.phone || '',
-      bio: user.bio || '',
-      avatar: user.avatar || ''
-    });
-  }
-}, [user]);
+  const [profileSettings, setProfileSettings] = useState({
+    name: "",
+    email: "",
+    nim: "",
+    semester: 7,
+    phone: "",
+    bio: "",
+    avatar_url: "",
+  });
 
+  useEffect(() => {
+    if (user) {
+      // TAMBAHKAN BARIS INI UNTUK MELIHAT ISI OBJEK USER
+      console.log("Mengecek isi objek 'user':", user);
+
+      setProfileSettings({
+        name: user.name || "",
+        email: user.email || "",
+        nim: user.nim || "",
+        semester: user.semester || 7,
+        phone: user.phone || "",
+        bio: user.bio || "",
+        avatar_url: user.avatar_url || "",
+      });
+    }
+  }, [user]);
 
   // Security settings
   const [securitySettings, setSecuritySettings] = useState({
@@ -187,54 +203,121 @@ useEffect(() => {
     }, 2000);
   };
 
-const handleSaveProfile = async () => {
-  setIsSavingProfile(true);
-  try {
-    const response = await fetch('/api/profile', {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        id: user?.id, // pastikan kamu udah punya ID user
-        ...profileSettings,
-      }),
-    });
+  const handleSaveProfile = async () => {
+    setIsSavingProfile(true);
+    try {
+      const response = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: user?.id, // pastikan kamu udah punya ID user
+          ...profileSettings,
+        }),
+      });
 
-    const result = await response.json();
+      const result = await response.json();
 
-    if (!response.ok) {
-      throw new Error(result.error || 'Gagal menyimpan profil.');
+      if (!response.ok) {
+        throw new Error(result.error || "Gagal menyimpan profil.");
+      }
+      // ✅ Tambahkan ini setelah berhasil update profil
+      const updatedUser = {
+        name: profileSettings.name,
+        semester: profileSettings.semester,
+        phone: profileSettings.phone,
+        bio: profileSettings.bio,
+        avatar_url: profileSettings.avatar_url,
+      };
+
+      updateUserInCookie(updatedUser); // update cookie
+      setUser((prev) => (prev ? { ...prev, ...updatedUser } : prev));
+
+      toast({
+        title: "Sukses!",
+        description: "Profil Anda berhasil diperbarui.",
+      });
+
+      await refreshUser();
+    } catch (error: any) {
+      toast({
+        title: "Gagal",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingProfile(false);
     }
-        // ✅ Tambahkan ini setelah berhasil update profil
-    const updatedUser = {
-      name: profileSettings.name,
-      semester: profileSettings.semester,
-      phone: profileSettings.phone,
-      bio: profileSettings.bio,
-      avatar: profileSettings.avatar,
-    };
+  };
 
-    updateUserInCookie(updatedUser);       // update cookie
-    setUser(prev => prev ? { ...prev, ...updatedUser } : prev);
+  // ...di dalam komponen SettingsPage setelah deklarasi state
 
-    toast({
-      title: 'Sukses!',
-      description: 'Profil Anda berhasil diperbarui.',
-    });
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setAvatarFile(file); // Simpan file ke state
+      setAvatarPreview(URL.createObjectURL(file)); // Buat URL preview
+    }
+  };
 
-    await refreshUser();
-  } catch (error: any) {
-    toast({
-      title: 'Gagal',
-      description: error.message,
-      variant: 'destructive',
-    });
-  } finally {
-    setIsSavingProfile(false);
-  }
-};
+  const handleUploadAvatar = async () => {
+    if (!avatarFile) {
+      toast({
+        title: "Tidak ada file",
+        description: "Pilih file gambar terlebih dahulu.",
+        variant: "destructive",
+      });
+      return;
+    }
 
+    setIsUploading(true);
+
+    // --- LOGIKA UPLOAD ---
+    // Di aplikasi nyata, Anda akan menggunakan FormData untuk mengirim file
+    // ke API endpoint Anda (misalnya, menggunakan fetch atau axios).
+    const formData = new FormData();
+    formData.append("avatar", avatarFile);
+    formData.append("userId", user?.id || ""); // Kirim ID user
+
+    try {
+      // Ganti '/api/avatar' dengan endpoint Anda yang sebenarnya
+      const response = await fetch("/api/avatar", {
+        // Anda perlu membuat API route ini
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Gagal mengunggah avatar.");
+      }
+
+      // Jika berhasil, perbarui URL di state utama dan UI
+      setProfileSettings((prev) => ({ ...prev, avatar_url: result.url }));
+      setAvatarPreview(null); // Hapus preview setelah berhasil
+      setAvatarFile(null); // Hapus file dari state
+
+      // Perbarui juga data user di AuthContext agar avatar baru muncul di semua halaman
+      const updatedUser = { avatar_url: result.url };
+      updateUserInCookie(updatedUser);
+      setUser((prev) => (prev ? { ...prev, ...updatedUser } : prev));
+
+      toast({
+        title: "Sukses!",
+        description: "Foto profil berhasil diperbarui.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Gagal Mengunggah",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleSaveSecurity = () => {
     console.log("Saving security settings:", securitySettings);
@@ -293,112 +376,190 @@ const handleSaveProfile = async () => {
                   Informasi Profil
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="name">Nama Lengkap</Label>
-                    <Input
-                      id="name"
-                      value={profileSettings.name}
-                      onChange={(e) =>
-                        setProfileSettings({
-                          ...profileSettings,
-                          name: e.target.value,
-                        })
-                      }
+              <CardContent>
+                <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
+                  {/* Kolom Avatar */}
+
+                  <div className="flex flex-col items-center gap-3 w-full md:w-48">
+                    <Avatar className="w-32 h-32 md:w-40 md:h-40">
+                      <AvatarImage
+                        // Tampilkan preview jika ada, jika tidak, tampilkan avatar_url dari database
+                        src={avatarPreview || profileSettings.avatar_url || ""}
+                        alt="Foto Profil"
+                      />
+                      <AvatarFallback>
+                        {/* Fallback inisial nama */}
+                        {profileSettings.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+
+                    {/* Input file yang disembunyikan */}
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleAvatarChange}
+                      className="hidden"
+                      accept="image/png, image/jpeg, image/gif" // Batasi tipe file
                     />
+
+                    {/* Tombol akan berubah tergantung kondisi */}
+                    {avatarFile ? (
+                      // Tampilkan tombol Simpan & Batal jika ada file yang dipilih
+                      <div className="w-full space-y-2">
+                        <Button
+                          onClick={handleUploadAvatar}
+                          className="w-full"
+                          disabled={isUploading}
+                        >
+                          {isUploading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Mengunggah...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="w-4 h-4 mr-2" />
+                              Simpan Foto
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          className="w-full"
+                          onClick={() => {
+                            setAvatarFile(null);
+                            setAvatarPreview(null);
+                          }}
+                          disabled={isUploading}
+                        >
+                          Batal
+                        </Button>
+                      </div>
+                    ) : (
+                      // Tombol default untuk memilih file
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => fileInputRef.current?.click()} // Picu klik pada input tersembunyi
+                      >
+                        <Camera className="w-4 h-4 mr-2" />
+                        Ganti Foto
+                      </Button>
+                    )}
                   </div>
 
-                  <div>
-                    <Label htmlFor="email">Email Saat Ini</Label>
-                    {/* Email dibuat disabled */}
-                    <Input
-                      id="email"
-                      type="email"
-                      value={profileSettings.email}
-                      disabled
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Email default tidak bisa diubah. Gunakan form di bawah
-                      untuk mengganti.
-                    </p>
-                  </div>
+                  {/* Kolom Form */}
+                  <div className="flex-1 w-full space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="name">Nama Lengkap</Label>
+                        <Input
+                          id="name"
+                          value={profileSettings.name}
+                          onChange={(e) =>
+                            setProfileSettings({
+                              ...profileSettings,
+                              name: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
 
-                  <div>
-                    <Label htmlFor="nim">NIM</Label>
-                    <Input id="nim" value={profileSettings.nim} disabled />
-                  </div>
+                      <div>
+                        <Label htmlFor="email">Email Saat Ini</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={profileSettings.email}
+                          disabled
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Email tidak bisa diubah.
+                        </p>
+                      </div>
 
-                  <div>
-                    <Label htmlFor="semester">Semester</Label>
-                    <Select
-                      value={profileSettings.semester.toString()}
-                      onValueChange={(value) =>
-                        setProfileSettings({
-                          ...profileSettings,
-                          semester: parseInt(value),
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
-                          <SelectItem key={sem} value={sem.toString()}>
-                            Semester {sem}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                      <div>
+                        <Label htmlFor="nim">NIM</Label>
+                        <Input id="nim" value={profileSettings.nim} disabled />
+                      </div>
 
-                  <div>
-                    <Label htmlFor="phone">Nomor Telepon (WhatsApp)</Label>
-                    <Input
-                      id="phone"
-                      value={profileSettings.phone}
-                      onChange={(e) =>
-                        setProfileSettings({
-                          ...profileSettings,
-                          phone: e.target.value,
-                        })
-                      }
-                      placeholder="+62 xxx-xxxx-xxxx"
-                    />
+                      <div>
+                        <Label htmlFor="semester">Semester</Label>
+                        <Select
+                          value={profileSettings.semester.toString()}
+                          onValueChange={(value) =>
+                            setProfileSettings({
+                              ...profileSettings,
+                              semester: parseInt(value),
+                            })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
+                              <SelectItem key={sem} value={sem.toString()}>
+                                Semester {sem}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <Label htmlFor="phone">Nomor Telepon (WhatsApp)</Label>
+                        <Input
+                          id="phone"
+                          value={profileSettings.phone}
+                          onChange={(e) =>
+                            setProfileSettings({
+                              ...profileSettings,
+                              phone: e.target.value,
+                            })
+                          }
+                          placeholder="+62 xxx-xxxx-xxxx"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="bio">Bio</Label>
+                      <Textarea
+                        id="bio"
+                        value={profileSettings.bio}
+                        onChange={(e) =>
+                          setProfileSettings({
+                            ...profileSettings,
+                            bio: e.target.value,
+                          })
+                        }
+                        placeholder="Ceritakan sedikit tentang diri Anda..."
+                        rows={3}
+                      />
+                    </div>
                   </div>
                 </div>
-
-                <div>
-                  <Label htmlFor="bio">Bio</Label>
-                  <Textarea
-                    id="bio"
-                    value={profileSettings.bio}
-                    onChange={(e) =>
-                      setProfileSettings({
-                        ...profileSettings,
-                        bio: e.target.value,
-                      })
-                    }
-                    placeholder="Ceritakan sedikit tentang diri Anda..."
-                    rows={3}
-                  />
-                </div>
-
-                <Button onClick={handleSaveProfile} disabled={isSavingProfile}>
-            {isSavingProfile ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Menyimpan...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4 mr-2" />
-                Simpan Perubahan Profil
-              </>
-            )}
-          </Button>
               </CardContent>
+              <CardFooter className="flex justify-end">
+                <Button onClick={handleSaveProfile} disabled={isSavingProfile}>
+                  {isSavingProfile ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Menyimpan...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Simpan Perubahan
+                    </>
+                  )}
+                </Button>
+              </CardFooter>
             </Card>
 
             {/* [BARU] CARD UNTUK GANTI EMAIL DENGAN VERIFIKASI */}
@@ -541,7 +702,7 @@ const handleSaveProfile = async () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="id">Indonesia</SelectItem>
-                      <SelectItem value="en">English</SelectItem>
+                      <SelectItem value="en">Ra onok cuy</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

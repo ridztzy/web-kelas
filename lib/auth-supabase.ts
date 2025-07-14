@@ -15,7 +15,7 @@ export const loginWithNIM = async (nim: string, password: string): Promise<AuthR
     // Step 1: Cari email berdasarkan NIM dari tabel profiles
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
-      .select('email, id, name, role, semester, nim, avatar_url, created_at, updated_at')
+      .select('email, id, name, role, semester, nim, avatar_url, phone, bio, created_at, updated_at')
       .eq('nim', nim)
       .single();
 
@@ -66,8 +66,10 @@ export const loginWithNIM = async (nim: string, password: string): Promise<AuthR
       email: profileData.email,
       role: profileData.role as 'admin' | 'ketua_kelas' | 'sekretaris' | 'mahasiswa',
       nim: profileData.nim, 
+      phone: profileData.phone,
+      bio: profileData.bio,
       semester: profileData.semester || 1,
-      avatar: profileData.avatar_url,
+      avatar_url: profileData.avatar_url,
       createdAt: new Date(profileData.created_at),
       updatedAt: new Date(profileData.updated_at)
     };

@@ -29,11 +29,27 @@ export default function Header({ sidebarOpen, setSidebarOpen }: HeaderProps) {
 
   const notificationCount = 3;
 
-  const handleLogout = () => {
-    logout();
+const handleLogout = async () => {
+  try {
+    // Tampilkan loading jika perlu
+    // showLoading();
+
+    // 1. Tunggu (await) sampai proses logout di server selesai
+    await logout();
+    
+    // 2. Setelah BENAR-BENAR berhasil, baru perbarui UI dan arahkan pengguna
     setUser(null);
     router.push('/');
-  };
+
+  } catch (error) {
+    // Tangani jika proses logout di server gagal
+    console.error("Gagal melakukan logout:", error);
+    alert("Proses keluar gagal, silakan coba lagi.");
+  } finally {
+    // Sembunyikan loading jika ada
+    // hideLoading();
+  }
+};
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,17 +150,29 @@ export default function Header({ sidebarOpen, setSidebarOpen }: HeaderProps) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center space-x-2 px-2 hover:bg-accent">
-              <UserCircle className="w-8 h-8 text-primary flex-shrink-0" />
-              <div className="hidden sm:block text-left min-w-0">
-                <p className="text-sm font-medium truncate max-w-[120px]">
-                  {user?.name || 'User'}
-                </p>
-                <p className="text-xs text-muted-foreground truncate max-w-[120px]">
-                  NIM: {user?.nim || '-'}
-                </p>
-              </div>
-              <ChevronDown className="w-4 h-4 text-muted-foreground hidden sm:block flex-shrink-0" />
-            </Button>
+  {/* Logika untuk menampilkan gambar atau ikon */}
+  {user?.avatar_url ? (
+    <img
+      src={user.avatar_url}
+      alt={user.name || 'Avatar'}
+      className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+    />
+  ) : (
+    <UserCircle className="w-8 h-8 text-primary flex-shrink-0" />
+  )}
+
+  {/* Bagian teks tetap sama */}
+  <div className="hidden sm:block text-left min-w-0">
+    <p className="text-sm font-medium truncate max-w-[120px]">
+      {user?.name || 'User'}
+    </p>
+    <p className="text-xs text-muted-foreground truncate max-w-[120px]">
+      NIM: {user?.nim || '-'}
+    </p>
+  </div>
+
+  <ChevronDown className="w-4 h-4 text-muted-foreground hidden sm:block flex-shrink-0" />
+</Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>

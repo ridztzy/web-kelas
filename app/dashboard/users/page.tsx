@@ -449,14 +449,24 @@ const handleCreateUser = async () => {
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center space-x-3">
-            <UserCircle className="w-10 h-10 text-primary" />
-            <div>
-              <h3 className="font-medium">{userData.name}</h3>
-              <p className="text-sm text-muted-foreground">
-                NIM: {userData.nim}
-              </p>
-            </div>
-          </div>
+  {/* Logika untuk menampilkan gambar atau ikon */}
+  {userData.avatar_url ? (
+    <img
+      src={userData.avatar_url}
+      alt={userData.name}
+      className="w-10 h-10 rounded-full object-cover"
+    />
+  ) : (
+    <UserCircle className="w-10 h-10 text-primary" />
+  )}
+
+  <div>
+    <h3 className="font-medium">{userData.name}</h3>
+    <p className="text-sm text-muted-foreground">
+      NIM: {userData.nim}
+    </p>
+  </div>
+</div>
           <div className="flex space-x-1">
             <Button
               variant="ghost"

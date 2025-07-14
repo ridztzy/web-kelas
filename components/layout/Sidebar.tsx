@@ -39,11 +39,27 @@ export default function Sidebar({ isOpen, setIsOpen, isCollapsed, setIsCollapsed
   const router = useRouter();
   const pathname = usePathname();
 
-  const handleLogout = () => {
-    logout();
+const handleLogout = async () => {
+  try {
+    // Tampilkan loading jika perlu
+    // showLoading();
+
+    // 1. Tunggu (await) sampai proses logout di server selesai
+    await logout();
+    
+    // 2. Setelah BENAR-BENAR berhasil, baru perbarui UI dan arahkan pengguna
     setUser(null);
     router.push('/');
-  };
+
+  } catch (error) {
+    // Tangani jika proses logout di server gagal
+    console.error("Gagal melakukan logout:", error);
+    alert("Proses keluar gagal, silakan coba lagi.");
+  } finally {
+    // Sembunyikan loading jika ada
+    // hideLoading();
+  }
+};
 
   const menuItems = [
     { icon: Home, label: 'Dashboard', path: '/dashboard', badge: null },
@@ -156,9 +172,20 @@ export default function Sidebar({ isOpen, setIsOpen, isCollapsed, setIsCollapsed
           <div className={`p-4 border-b border-border ${isCollapsed ? 'px-2' : ''}`}>
             <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3'}`}>
               <div className="relative flex-shrink-0">
-                <UserCircle className="w-10 h-10 text-primary" />
-                <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
-              </div>
+  {/* Logika untuk menampilkan gambar atau ikon */}
+  {user?.avatar_url ? (
+    <img
+      src={user?.avatar_url}
+      alt={user?.name || 'Avatar'}
+      className="w-10 h-10 rounded-full object-cover"
+    />
+  ) : (
+    <UserCircle className="w-10 h-10 text-primary" />
+  )}
+
+  {/* Indikator status online tetap di sini */}
+  <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
+</div>
               {!isCollapsed && (
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{user?.name || 'User'}</p>

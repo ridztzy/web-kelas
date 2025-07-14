@@ -9,7 +9,7 @@ export const users: User[] = [
     role: 'admin',
     nim: '2021001',
     semester: 7,
-    avatar: '/api/placeholder/40/40',
+    avatar_url: '/api/placeholder/40/40',
     createdAt: new Date('2024-01-15'),
     updatedAt: new Date('2024-01-15')
   },
@@ -20,7 +20,7 @@ export const users: User[] = [
     role: 'ketua_kelas',
     nim: '2021002',
     semester: 7,
-    avatar: '/api/placeholder/40/40',
+    avatar_url: '/api/placeholder/40/40',
     createdAt: new Date('2024-01-15'),
     updatedAt: new Date('2024-01-15')
   },
@@ -31,7 +31,7 @@ export const users: User[] = [
     role: 'sekretaris',
     nim: '2021003',
     semester: 7,
-    avatar: '/api/placeholder/40/40',
+    avatar_url: '/api/placeholder/40/40',
     createdAt: new Date('2024-01-15'),
     updatedAt: new Date('2024-01-15')
   },
@@ -42,7 +42,7 @@ export const users: User[] = [
     role: 'mahasiswa',
     nim: '2021004',
     semester: 7,
-    avatar: '/api/placeholder/40/40',
+    avatar_url: '/api/placeholder/40/40',
     createdAt: new Date('2024-01-15'),
     updatedAt: new Date('2024-01-15')
   }

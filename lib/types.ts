@@ -7,7 +7,7 @@ export interface User {
   semester: number;
   phone?: string;
   bio?: string;
-  avatar?: string;
+  avatar_url?: string;
   createdAt: Date;
   updatedAt: Date;
   lastSignInAt?: Date;
