@@ -6,7 +6,7 @@ import { getCurrentUser } from '@/lib/auth-supabase';
 
 interface AuthContextType {
   user: User | null;
-  setUser: (user: User | null) => void;
+    setUser: React.Dispatch<React.SetStateAction<User | null>>; 
   isLoading: boolean;
   refreshUser: () => Promise<void>;
 }

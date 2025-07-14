@@ -178,3 +178,32 @@ export const testSupabaseConnection = async (): Promise<boolean> => {
   }
 };
 
+// Function untuk mengupdate data user di cookie setelah update profil
+export const updateUserInCookie = (updatedData: Partial<User>) => {
+  const sessionCookie = Cookies.get('supabase-session');
+  if (!sessionCookie) return;
+
+  try {
+    const sessionData = JSON.parse(sessionCookie);
+
+    const updatedUser = {
+      ...sessionData.user,
+      ...updatedData
+    };
+
+    const newSessionData = {
+      ...sessionData,
+      user: updatedUser
+    };
+
+    Cookies.set('supabase-session', JSON.stringify(newSessionData), {
+      expires: 7,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax'
+    });
+
+    console.log('Session cookie updated:', updatedUser);
+  } catch (error) {
+    console.error('Gagal update session cookie:', error);
+  }
+};

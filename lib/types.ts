@@ -5,6 +5,8 @@ export interface User {
   role: 'admin' | 'ketua_kelas' | 'sekretaris' | 'mahasiswa';
   nim: string;
   semester: number;
+  phone?: string;
+  bio?: string;
   avatar?: string;
   createdAt: Date;
   updatedAt: Date;
