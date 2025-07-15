@@ -8,12 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-
 import { useAuth } from "@/contexts/AuthContext";
 import { hasPermission } from "@/lib/auth";
-import { subjects } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
-import { Subject } from "@/lib/types";
+import { Subject, Schedule } from "@/lib/types"; // Impor Schedule
 import {
   BookOpen,
   Plus,
@@ -39,7 +37,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
 import {
@@ -49,16 +46,20 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
-  DialogDescription,
   DialogClose,
 } from "@/components/ui/dialog";
+
+// Tipe data baru untuk Subject yang menyertakan array dari jadwal
+type SubjectWithSchedules = Subject & {
+  schedules: Pick<Schedule, 'day' | 'start_time' | 'end_time'>[];
+};
 
 export default function SubjectsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // State untuk menyimpan data, loading, dan form
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  // State menggunakan tipe data baru
+  const [subjects, setSubjects] = useState<SubjectWithSchedules[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -69,12 +70,10 @@ export default function SubjectsPage() {
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [deletingSubject, setDeletingSubject] = useState<Subject | null>(null);
 
-  // State untuk form tambah mata kuliah baru
   const [newSubject, setNewSubject] = useState({
     name: "",
     code: "",
     lecturer: "",
-    schedule: "",
     credits: 3,
     description: "",
   });
@@ -84,7 +83,6 @@ export default function SubjectsPage() {
     "ketua_kelas",
   ]);
 
-  // Fungsi untuk mengambil data mata kuliah dari API
   const loadSubjects = async () => {
     setLoading(true);
     try {
@@ -107,12 +105,10 @@ export default function SubjectsPage() {
     }
   };
 
-  // Panggil fungsi loadSubjects saat komponen pertama kali dimuat
   useEffect(() => {
     loadSubjects();
   }, []);
 
-  // Fungsi untuk membuat mata kuliah baru
   const handleCreateSubject = async () => {
     setActionLoading(true);
     try {
@@ -133,18 +129,14 @@ export default function SubjectsPage() {
         description: `Mata kuliah "${newSubject.name}" berhasil ditambahkan.`,
       });
 
-      // Reset form dan tutup dialog
       setShowCreateDialog(false);
       setNewSubject({
         name: "",
         code: "",
         lecturer: "",
-        schedule: "",
         credits: 3,
         description: "",
       });
-
-      // Muat ulang data untuk menampilkan data baru
       loadSubjects();
     } catch (error: any) {
       toast({
@@ -226,9 +218,8 @@ export default function SubjectsPage() {
     }
   };
 
-  // --- HANDLER UNTUK MEMBUKA DIALOG ---
   const openEditDialog = (subject: Subject) => {
-    setEditingSubject({ ...subject }); // Salin subject agar tidak mengubah state asli secara langsung
+    setEditingSubject({ ...subject });
     setShowEditDialog(true);
   };
 
@@ -244,19 +235,7 @@ export default function SubjectsPage() {
       subject.lecturer.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  {
-    /* Loading State */
-  }
-  {
-    loading && (
-      <div className="text-center py-16">
-        <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" />
-        <p className="mt-4 text-muted-foreground">Memuat data mata kuliah...</p>
-      </div>
-    );
-  }
-
-  const SubjectCard = ({ subject }: { subject: Subject }) => (
+  const SubjectCard = ({ subject }: { subject: SubjectWithSchedules }) => (
     <Card className="hover:shadow-lg transition-all duration-300 border-l-4 border-l-primary">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
@@ -288,15 +267,21 @@ export default function SubjectsPage() {
             <User className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm">{subject.lecturer}</span>
           </div>
-          <div className="flex items-center space-x-2">
-            <Clock className="w-4 h-4 text-muted-foreground" />
-            {subject.schedule ? (
-              <span className="text-sm">{subject.schedule}</span>
-            ) : (
-              <span className="text-sm text-muted-foreground italic">
-                Jadwal masih belum di atur
-              </span>
-            )}
+          <div className="flex items-start space-x-2">
+            <Clock className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+            <div className="flex flex-col">
+              {subject.schedules && subject.schedules.length > 0 ? (
+                subject.schedules.map((schedule) => (
+                  <span key={schedule.day + schedule.start_time} className="text-sm">
+                    {schedule.day}, {schedule.start_time.substring(0, 5)} - {schedule.end_time.substring(0, 5)}
+                  </span>
+                ))
+              ) : (
+                <span className="text-sm text-muted-foreground italic">
+                  Jadwal belum diatur
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex items-center space-x-2">
             <GraduationCap className="w-4 h-4 text-muted-foreground" />
@@ -332,6 +317,16 @@ export default function SubjectsPage() {
     </Card>
   );
 
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -344,7 +339,7 @@ export default function SubjectsPage() {
           </div>
 
           {canManageSubjects && (
-            <Dialog>
+            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="w-4 h-4 mr-2" />
@@ -355,7 +350,7 @@ export default function SubjectsPage() {
                 <DialogHeader>
                   <DialogTitle>Tambah Mata Kuliah Baru</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4">
+                <div className="space-y-4 py-4">
                   <div>
                     <Label htmlFor="name">Nama Mata Kuliah</Label>
                     <Input
@@ -452,7 +447,6 @@ export default function SubjectsPage() {
           )}
         </div>
 
-        {/* Search */}
         <Card>
           <CardContent className="p-4">
             <div className="relative">
@@ -467,7 +461,6 @@ export default function SubjectsPage() {
           </CardContent>
         </Card>
 
-        {/* Statistics */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20">
             <CardContent className="p-4">
@@ -526,7 +519,7 @@ export default function SubjectsPage() {
                       subjects.reduce(
                         (total, subject) => total + subject.credits,
                         0
-                      ) / subjects.length
+                      ) / (subjects.length || 1)
                     ).toFixed(1)}
                   </p>
                 </div>
@@ -536,7 +529,6 @@ export default function SubjectsPage() {
           </Card>
         </div>
 
-        {/* Subjects Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {filteredSubjects.map((subject) => (
             <SubjectCard key={subject.id} subject={subject} />
@@ -544,7 +536,6 @@ export default function SubjectsPage() {
         </div>
       </div>
 
-      {/* DIALOG UNTUK EDIT */}
       {editingSubject && (
         <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
           <DialogContent className="max-w-md">
@@ -643,7 +634,6 @@ export default function SubjectsPage() {
         </Dialog>
       )}
 
-      {/* DIALOG KONFIRMASI HAPUS */}
       {deletingSubject && (
         <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
           <AlertDialogContent>

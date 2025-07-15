@@ -16,17 +16,17 @@ export interface User {
 export interface Task {
   id: string;
   title: string;
-  description: string;
-  dueDate: Date;
+  description?: string | null;
+  due_date?: string | null;
   priority: 'rendah' | 'sedang' | 'tinggi';
   status: 'pending' | 'in_progress' | 'completed';
   type: 'pribadi' | 'kelas';
-  assignedTo?: string;
-  assignedBy?: string;
-  subject?: string;
-  attachments?: string[];
-  createdAt: Date;
-  updatedAt: Date;
+  subject_id?: string | null;
+  assigned_to: string;
+  assigned_by?: string | null;
+  created_at: string;
+  updated_at: string;
+  // attachments?: string[]; // Dihapus untuk saat ini, bisa ditambahkan lagi nanti
 }
 
 export interface ChatMessage {
@@ -52,9 +52,9 @@ export interface Subject {
   name: string;
   code: string;
   lecturer: string;
-  schedule: string;
   credits: number;
   description?: string;
+  // schedule tidak lagi di sini, karena sudah ada di tabel schedules
 }
 
 export interface Notification {
@@ -67,11 +67,13 @@ export interface Notification {
   createdAt: Date;
 }
 
+// Tipe Schedule diperbarui sesuai dengan skema database baru
 export interface Schedule {
   id: string;
-  subject: string;
-  time: string;
-  day: string;
-  room: string;
-  lecturer: string;
+  subject_id: string; // Foreign key ke tabel subjects
+  day: 'Senin' | 'Selasa' | 'Rabu' | 'Kamis' | 'Jumat' | 'Sabtu' | 'Minggu';
+  start_time: string; // Format 'HH:MM:SS'
+  end_time: string; // Format 'HH:MM:SS'
+  room?: string;
+  created_at: string;
 }

@@ -9,6 +9,7 @@ export interface MessageInsert {
   file_name?: string;
   file_size?: number;
   file_url?: string;
+  reply_to?: string | null; // Pastikan ini ada
 }
 
 export interface MessageUpdate {
@@ -17,18 +18,57 @@ export interface MessageUpdate {
   status?: 'sent' | 'delivered' | 'read';
 }
 
+// --- Fungsi yang Diperbaiki ---
+const messageQuery = `
+  id,
+  created_at,
+  message,
+  sender_id,
+  type,
+  edited,
+  status,
+  file_name,
+  file_size,
+  file_url,
+  reply_to,
+  sender:profiles!messages_sender_id_fkey (
+    id, name, role, avatar_url
+  ),
+  replied_message:messages!reply_to (
+    id, message, sender_id,
+    sender:profiles!messages_sender_id_fkey(id, name)
+  )
+`;
+
+const mapToChatMessage = (msg: any): ChatMessage => {
+  if (!msg) return {} as ChatMessage; // Handle null case
+  return {
+    id: msg.id,
+    message: msg.message,
+    senderId: msg.sender_id,
+    senderName: msg.sender?.name || 'User',
+    senderRole: msg.sender?.role || 'mahasiswa',
+    senderAvatar: msg.sender?.avatar_url,
+    timestamp: new Date(msg.created_at),
+    type: msg.type,
+    edited: msg.edited,
+    status: msg.status,
+    fileName: msg.file_name,
+    fileSize: msg.file_size,
+    fileUrl: msg.file_url,
+    reply_to: msg.reply_to,
+    replied_message: msg.replied_message ? {
+        message: msg.replied_message.message,
+        senderName: msg.replied_message.sender?.name || 'User'
+    } : null,
+  };
+};
+
 // Fetch all messages
 export async function fetchMessages(): Promise<ChatMessage[]> {
   const { data, error } = await supabase
     .from('messages')
-    .select(`
-      *,
-      sender:profiles!messages_sender_id_fkey(
-        id,
-        name,
-        role
-      )
-    `)
+    .select(messageQuery)
     .order('created_at', { ascending: true });
 
   if (error) {
@@ -36,20 +76,7 @@ export async function fetchMessages(): Promise<ChatMessage[]> {
     throw error;
   }
 
-  return data.map(msg => ({
-    id: msg.id,
-    message: msg.message,
-    senderId: msg.sender_id,
-    senderName: msg.sender.name,
-    senderRole: msg.sender.role,
-    timestamp: new Date(msg.created_at),
-    type: msg.type,
-    edited: msg.edited,
-    status: msg.status,
-    fileName: msg.file_name,
-    fileSize: msg.file_size,
-    fileUrl: msg.file_url
-  }));
+  return data.map(mapToChatMessage);
 }
 
 // Insert new message
@@ -57,14 +84,7 @@ export async function insertMessage(message: MessageInsert): Promise<ChatMessage
   const { data, error } = await supabase
     .from('messages')
     .insert(message)
-    .select(`
-      *,
-      sender:profiles!messages_sender_id_fkey(
-        id,
-        name,
-        role
-      )
-    `)
+    .select(messageQuery)
     .single();
 
   if (error) {
@@ -72,20 +92,7 @@ export async function insertMessage(message: MessageInsert): Promise<ChatMessage
     throw error;
   }
 
-  return {
-    id: data.id,
-    message: data.message,
-    senderId: data.sender_id,
-    senderName: data.sender.name,
-    senderRole: data.sender.role,
-    timestamp: new Date(data.created_at),
-    type: data.type,
-    edited: data.edited,
-    status: data.status,
-    fileName: data.file_name,
-    fileSize: data.file_size,
-    fileUrl: data.file_url
-  };
+  return mapToChatMessage(data);
 }
 
 // Update message
@@ -124,119 +131,48 @@ export function subscribeToMessages(
     .channel('messages-changes')
     .on(
       'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages'
-      },
+      { event: '*', schema: 'public', table: 'messages' },
       async (payload) => {
-        // Fetch the complete message with sender info
-        const { data } = await supabase
-          .from('messages')
-          .select(`
-            *,
-            sender:profiles!messages_sender_id_fkey(
-              id,
-              name,
-              role,
-              avatar_url
-            )
-          `)
-          .eq('id', payload.new.id)
-          .single();
-
-        if (data) {
-          onInsert({
-            id: data.id,
-            message: data.message,
-            senderId: data.sender_id,
-            senderName: data.sender.name,
-            senderRole: data.sender.role,
-            senderAvatar: data.sender.avatar_url,
-            timestamp: new Date(data.created_at),
-            type: data.type,
-            edited: data.edited,
-            status: data.status,
-            fileName: data.file_name,
-            fileSize: data.file_size,
-            fileUrl: data.file_url
-          });
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          const { data } = await supabase
+            .from('messages')
+            .select(messageQuery)
+            .eq('id', payload.new.id)
+            .single();
+            
+          if (data) {
+            const mappedMessage = mapToChatMessage(data);
+            if (payload.eventType === 'INSERT') {
+              onInsert(mappedMessage);
+            } else {
+              onUpdate(mappedMessage);
+            }
+          }
+        } else if (payload.eventType === 'DELETE') {
+          onDelete(payload.old.id);
         }
-      }
-    )
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'messages'
-      },
-      async (payload) => {
-        // Fetch the complete updated message with sender info
-        const { data } = await supabase
-          .from('messages')
-          .select(`
-            *,
-            sender:profiles!messages_sender_id_fkey(
-              id,
-              name,
-              role
-            )
-          `)
-          .eq('id', payload.new.id)
-          .single();
-
-        if (data) {
-          onUpdate({
-            id: data.id,
-            message: data.message,
-            senderId: data.sender_id,
-            senderName: data.sender.name,
-            senderRole: data.sender.role,
-            senderAvatar: data.sender.avatar_url,
-            timestamp: new Date(data.created_at),
-            type: data.type,
-            edited: data.edited,
-            status: data.status,
-            fileName: data.file_name,
-            fileSize: data.file_size,
-            fileUrl: data.file_url
-          });
-        }
-      }
-    )
-    .on(
-      'postgres_changes',
-      {
-        event: 'DELETE',
-        schema: 'public',
-        table: 'messages'
-      },
-      (payload) => {
-        onDelete(payload.old.id);
       }
     )
     .subscribe();
 
   return channel;
 }
+  // File upload utility
+  export async function uploadFile(file: File, userId: string): Promise<string> {
+    const fileName = `${userId}/${Date.now()}-${file.name}`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from('chat-files')
+      .upload(fileName, file);
 
-// File upload utility
-export async function uploadFile(file: File, userId: string): Promise<string> {
-  const fileName = `${userId}/${Date.now()}-${file.name}`;
-  
-  const { error: uploadError } = await supabase.storage
-    .from('chat-files')
-    .upload(fileName, file);
+    if (uploadError) {
+      console.error('Error uploading file:', uploadError);
+      throw uploadError;
+    }
 
-  if (uploadError) {
-    console.error('Error uploading file:', uploadError);
-    throw uploadError;
+    const { data: { publicUrl } } = supabase.storage
+      .from('chat-files')
+      .getPublicUrl(fileName);
+
+    return publicUrl;
   }
-
-  const { data: { publicUrl } } = supabase.storage
-    .from('chat-files')
-    .getPublicUrl(fileName);
-
-  return publicUrl;
-}

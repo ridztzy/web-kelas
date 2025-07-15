@@ -16,7 +16,32 @@
   }
 }
 
+/* Memastikan viewport responsive ke keyboard mobile */
+@supports (padding: max(0px)) {
+  body, #root, .container {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
 
+/* Touch feedback untuk elemen interaktif */
+button, [role="button"], .interactive {
+  transition: transform 0.1s, background-color 0.2s;
+}
+
+button:active, [role="button"]:active, .interactive:active {
+  transform: scale(0.96);
+}
+
+/* Scroll yang lebih smooth di mobile */
+html {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Mencegah zoom pada input di mobile */
+input, textarea {
+  font-size: 16px !important;
+}
 
 @layer base {
   :root {
@@ -142,5 +167,9 @@
     outline: 2px solid hsl(var(--primary));
     outline-offset: 2px;
   }
+}
+
+.dialog-kabur > button {
+  display: none;
 }
 

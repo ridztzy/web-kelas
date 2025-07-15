@@ -25,9 +25,18 @@ const supabaseAdmin = createClient<Database>(
 // --- 1. FUNGSI UNTUK MENGAMBIL DATA (GET) ---
 export async function GET() {
   try {
+    // Mengambil data subjects dan menggabungkannya dengan data schedules
     const { data, error } = await supabaseAdmin
       .from('subjects')
-      .select('*')
+      .select(`
+        *,
+        schedules (
+          id,
+          day,
+          start_time,
+          end_time
+        )
+      `)
       .order('created_at', { ascending: false });
 
     if (error) {

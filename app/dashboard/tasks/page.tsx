@@ -1,78 +1,500 @@
 "use client";
 
-import { useState } from 'react';
-import DashboardLayout from '@/components/layout/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useState, useEffect } from "react";
+import DashboardLayout from "@/components/layout/DashboardLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { useAuth } from '@/contexts/AuthContext';
-import { hasPermission } from '@/lib/auth';
-import { tasks } from '@/lib/data';
-import { Task } from '@/lib/types';
+} from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/contexts/AuthContext";
+import { hasPermission } from "@/lib/auth";
+import { Task, Subject } from "@/lib/types"; // Asumsikan Task di sini adalah tipe dasar
+import { useToast } from "@/hooks/use-toast";
 import {
   Plus,
   Search,
   Filter,
   Calendar,
   Clock,
-  AlertTriangle,
   CheckCircle,
   Circle,
   User,
   BookOpen,
   MoreHorizontal,
-  Trash2
-} from 'lucide-react';
+  Trash2,
+  Loader2,
+  Pencil,
+} from "lucide-react";
 
+// --- PERUBAHAN 1: TIPE DATA BARU SESUAI STRUKTUR DATABASE ---
+// Tipe untuk entri di tabel 'task_submissions'
+type Submission = {
+  id: string;
+  status: "pending" | "in_progress" | "completed";
+  user_id: string;
+};
+
+// Tipe data utama yang digunakan di halaman ini
+type TaskWithDetails = Task & {
+  subjects: { id: string; name: string } | null;
+  assigner: { id: string; name: string } | null;
+  // Ini adalah array yang berisi status pengerjaan user yang login
+  // Backend akan memastikan array ini hanya berisi satu item untuk setiap tugas
+  task_submissions: Submission[];
+};
 
 export default function TasksPage() {
   const { user } = useAuth();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('semua');
-  const [filterPriority, setFilterPriority] = useState('semua');
-  const [filterStatus, setFilterStatus] = useState('semua');
-  const [newTask, setNewTask] = useState({
-    title: '',
-    description: '',
-    dueDate: '',
-    priority: 'sedang',
-    type: 'pribadi',
-    subject: ''
+  const { toast } = useToast();
+
+  const [tasks, setTasks] = useState<TaskWithDetails[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterType, setFilterType] = useState("semua");
+  const [filterPriority, setFilterPriority] = useState("semua");
+  const [filterStatus, setFilterStatus] = useState("semua");
+
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<TaskWithDetails | null>(
+    null
+  );
+
+  // State utama untuk mengontrol fase ejekan
+  const [annoyPhase, setAnnoyPhase] = useState<"idle" | "faking" | "running">(
+    "idle"
+  );
+  // State untuk progress bar palsu
+  const [fakeProgress, setFakeProgress] = useState(0);
+  const [fakeMessage, setFakeMessage] = useState("Menghubungi server...");
+  // State untuk tombol kabur
+  const [runawayClicks, setRunawayClicks] = useState(0);
+  const [buttonPosition, setButtonPosition] = useState({
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
   });
 
-  const canCreateClassTasks = hasPermission(user?.role || '', ['admin', 'ketua_kelas', 'sekretaris']);
 
-  const filteredTasks = tasks.filter(task => {
-    const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         task.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = filterType === 'semua' || task.type === filterType;
-    const matchesPriority = filterPriority === 'semua' || task.priority === filterPriority;
-    const matchesStatus = filterStatus === 'semua' || task.status === filterStatus;
-    
+  const [newTask, setNewTask] = useState({
+    title: "",
+    description: "",
+    due_date: "",
+    priority: "sedang" as "rendah" | "sedang" | "tinggi",
+    type: "pribadi" as "pribadi" | "kelas",
+    subject_id: "",
+  });
+
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [taskToEdit, setTaskToEdit] = useState<TaskWithDetails | null>(null);
+  const [editTask, setEditTask] = useState({
+    title: "",
+    description: "",
+    due_date: "",
+    priority: "sedang" as "rendah" | "sedang" | "tinggi",
+    subject_id: "",
+  });
+
+  const canCreateClassTasks = hasPermission(user?.role || "", [
+    "admin",
+    "ketua_kelas",
+    "sekretaris",
+  ]);
+
+  // Fungsi untuk memuat semua data yang dibutuhkan
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      // Backend /api/tasks (GET) sudah dimodifikasi untuk mengembalikan data dengan struktur baru
+      const [tasksRes, subjectsRes] = await Promise.all([
+        fetch("/api/tasks", { credentials: "include" }),
+        fetch("/api/subjects", { credentials: "include" }),
+      ]);
+
+      if (!tasksRes.ok) throw new Error("Gagal memuat tugas");
+      if (!subjectsRes.ok) throw new Error("Gagal memuat mata kuliah");
+
+      const tasksData = await tasksRes.json();
+      const subjectsData = await subjectsRes.json();
+
+      // Tidak perlu filter di frontend lagi, karena backend sudah melakukannya
+      setTasks(tasksData.data || []);
+      setSubjects(subjectsData.data || []);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) loadData();
+  }, [user]);
+
+  // Lokasi: Dekat useEffect utama
+  // Lokasi: Dekat useEffect lainnya
+
+  useEffect(() => {
+    if (annoyPhase === "faking") {
+      // Reset state setiap kali fase 'faking' dimulai
+      setFakeProgress(0);
+      setFakeMessage("Menghubungi server...");
+
+      const timer = setInterval(() => {
+        setFakeProgress((prev) => {
+          const nextProgress = prev + Math.random() * 10;
+
+          if (nextProgress >= 99) {
+            clearInterval(timer);
+            setFakeMessage("GAGAL! Akses ditolak mentah-mentah.");
+
+            // Setelah 1.5 detik, ganti fase ke tombol kabur
+            setTimeout(() => {
+              setAnnoyPhase("running");
+            }, 1500);
+
+            return 99;
+          }
+
+          if (nextProgress > 70)
+            setFakeMessage("Memeriksa izin... kayaknya nggak punya deh.");
+          else if (nextProgress > 30)
+            setFakeMessage("Menghapus file penting...");
+
+          return nextProgress;
+        });
+      }, 400);
+
+      return () => clearInterval(timer);
+    }
+  }, [annoyPhase]);
+
+  const handleCreateTask = async () => {
+    if (!user) return;
+    if (!newTask.title.trim() || !newTask.due_date) {
+      toast({
+        title: "Error",
+        description: "Judul dan deadline harus diisi.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setActionLoading("create");
+    try {
+      // Payload ini sudah benar untuk backend baru kita
+      const payload = {
+        title: newTask.title,
+        description: newTask.description,
+        due_date: new Date(newTask.due_date).toISOString(),
+        priority: newTask.priority,
+        type: newTask.type,
+        subject_id: newTask.subject_id ? newTask.subject_id : null,
+        assigned_by: user.id,
+        // Jika pribadi, assigned_to adalah user.id. Jika kelas, assigned_to adalah null.
+        assigned_to: newTask.type === "pribadi" ? user.id : null,
+      };
+
+      const response = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Gagal membuat tugas.");
+
+      toast({ title: "Sukses", description: "Tugas baru berhasil dibuat." });
+      setShowCreateDialog(false);
+      setNewTask({
+        title: "",
+        description: "",
+        due_date: "",
+        priority: "sedang",
+        type: "pribadi",
+        subject_id: "",
+      });
+      loadData(); // Memuat ulang data
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleEditTask = async () => {
+    if (!taskToEdit) return;
+    if (!editTask.title.trim() || !editTask.due_date) {
+      toast({
+        title: "Error",
+        description: "Judul dan deadline harus diisi.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setActionLoading(`edit-${taskToEdit.id}`);
+    try {
+      const payload = {
+        title: editTask.title,
+        description: editTask.description,
+        due_date: new Date(editTask.due_date).toISOString(),
+        priority: editTask.priority,
+        subject_id: editTask.subject_id ? editTask.subject_id : null,
+      };
+      const response = await fetch(`/api/tasks/${taskToEdit.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        credentials: "include",
+      });
+      const result = await response.json();
+      if (!response.ok)
+        throw new Error(result.error || "Gagal mengedit tugas.");
+
+      toast({ title: "Sukses", description: "Tugas berhasil diupdate." });
+      setShowEditDialog(false);
+      setTaskToEdit(null);
+      loadData();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // --- PERUBAHAN 2: FUNGSI UPDATE STATUS MENARGETKAN SUBMISSION ---
+  const handleUpdateTaskStatus = async (
+    submissionId: string,
+    newStatus: "pending" | "in_progress" | "completed"
+  ) => {
+    setActionLoading(`status-${submissionId}`);
+    try {
+      // Endpoint API baru untuk mengupdate status di tabel 'task_submissions'
+      const response = await fetch(`/api/tasks/submissions/${submissionId}`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || "Gagal memperbarui status tugas.");
+      }
+
+      toast({ title: "Sukses", description: "Status tugas diperbarui." });
+      loadData(); // Memuat ulang data untuk menampilkan status terbaru
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const openEditDialog = (task: TaskWithDetails) => {
+    setTaskToEdit(task);
+    setEditTask({
+      title: task.title,
+      description: task.description || "",
+      due_date: task.due_date ? task.due_date.slice(0, 10) : "",
+      priority: task.priority,
+      subject_id: task.subjects?.id || "",
+    });
+    setShowEditDialog(true);
+  };
+
+  const openDeleteDialog = (task: TaskWithDetails) => {
+    setTaskToDelete(task);
+    setShowDeleteDialog(true);
+  };
+
+  // Lokasi: Dekat dialog-dialog lainnya
+  const closeAnnoyDialog = () => {
+    setAnnoyPhase("idle");
+    setRunawayClicks(0);
+    // TAMBAHKAN BARIS INI untuk mereset posisi tombol ke tengah
+    setButtonPosition({
+      top: "50%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+    });
+  };
+
+  // Fungsi untuk membuat tombol kabur
+const handleButtonEscape = (e: React.MouseEvent<HTMLElement>) => {
+  const button = e.currentTarget;
+  const buttonRect = button.getBoundingClientRect();
+
+  const screenWidth = window.innerWidth;
+  const screenHeight = window.innerHeight;
+
+  const screenCenterX = screenWidth / 2;
+  const screenCenterY = screenHeight / 2;
+
+  const buttonCenterX = buttonRect.left + buttonRect.width / 2;
+  const buttonCenterY = buttonRect.top + buttonRect.height / 2;
+
+  let targetQuadrantX: "left" | "right" = buttonCenterX < screenCenterX ? "right" : "left";
+  let targetQuadrantY: "top" | "bottom" = buttonCenterY < screenCenterY ? "bottom" : "top";
+
+  const margin = 40; // aman dari tepi
+  const buttonWidth = buttonRect.width;
+  const buttonHeight = buttonRect.height;
+
+  let newTop: number;
+  let newLeft: number;
+
+  // Y axis (top / bottom)
+  if (targetQuadrantY === "top") {
+    newTop = Math.max(
+      margin,
+      Math.random() * (screenCenterY - buttonHeight - margin)
+    );
+  } else {
+    newTop = Math.min(
+      screenHeight - buttonHeight - margin,
+      screenCenterY + Math.random() * (screenCenterY - buttonHeight - margin)
+    );
+  }
+
+  // X axis (left / right)
+  if (targetQuadrantX === "left") {
+    newLeft = Math.max(
+      margin,
+      Math.random() * (screenCenterX - buttonWidth - margin)
+    );
+  } else {
+    newLeft = Math.min(
+      screenWidth - buttonWidth - margin,
+      screenCenterX + Math.random() * (screenCenterX - buttonWidth - margin)
+    );
+  }
+
+  setButtonPosition({
+    top: `${newTop}px`,
+    left: `${newLeft}px`,
+    transform: "translate(0, 0)",
+  });
+};
+
+
+  // Fungsi yang dipanggil saat tombol kabur di-klik
+  const handleRunawayClick = (e: React.MouseEvent<HTMLElement>) => {
+    // Ganti batasnya menjadi 7
+    if (runawayClicks >= 6) {
+      // >= 6 karena klik ke-7 akan jadi yang terakhir
+      alert("Astaga, kamu gigih juga ya... Oke, aku nyerah.");
+      closeAnnoyDialog();
+    } else {
+      setRunawayClicks((prev) => prev + 1);
+      handleButtonEscape(e);
+    }
+  };
+
+  const handleDeleteTask = async () => {
+    if (!taskToDelete) return;
+    setActionLoading(`delete-${taskToDelete.id}`);
+    try {
+      // Menghapus master task akan otomatis menghapus semua submission terkait (karena ON DELETE CASCADE)
+      const response = await fetch(`/api/tasks/${taskToDelete.id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || "Gagal menghapus tugas.");
+      }
+
+      toast({ title: "Sukses", description: "Tugas berhasil dihapus." });
+      setShowDeleteDialog(false);
+      setTaskToDelete(null);
+      loadData();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // --- PERUBAHAN 3: LOGIKA FILTER DISESUAIKAN ---
+  const filteredTasks = tasks.filter((task) => {
+    const userSubmission = task.task_submissions[0];
+    const status = userSubmission?.status || "pending";
+
+    const matchesSearch =
+      task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      task.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = filterType === "semua" || task.type === filterType;
+    const matchesPriority =
+      filterPriority === "semua" || task.priority === filterPriority;
+    const matchesStatus = filterStatus === "semua" || status === filterStatus;
+
     return matchesSearch && matchesType && matchesPriority && matchesStatus;
   });
 
-  const personalTasks = filteredTasks.filter(task => task.type === 'pribadi');
-  const classTasks = filteredTasks.filter(task => task.type === 'kelas');
+  const personalTasks = filteredTasks.filter((task) => task.type === "pribadi");
+  const classTasks = filteredTasks.filter((task) => task.type === "kelas");
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed':
+      case "completed":
         return <CheckCircle className="w-4 h-4 text-green-600" />;
-      case 'in_progress':
+      case "in_progress":
         return <Clock className="w-4 h-4 text-blue-600" />;
       default:
         return <Circle className="w-4 h-4 text-gray-400" />;
@@ -81,171 +503,176 @@ export default function TasksPage() {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'tinggi':
-        return 'destructive';
-      case 'sedang':
-        return 'default';
+      case "tinggi":
+        return "destructive";
+      case "sedang":
+        return "default";
       default:
-        return 'secondary';
+        return "secondary";
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300';
-      case 'in_progress':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300';
-    }
-  };
+  // --- PERUBAHAN 4: TASKCARD MENGGUNAKAN DATA SUBMISSION ---
+  const TaskCard = ({ task }: { task: TaskWithDetails }) => {
+    // Backend sudah memfilter, jadi kita bisa dengan aman ambil item pertama
+    const userSubmission = task.task_submissions[0];
+    const status = userSubmission?.status || "pending";
+    const canManageTask = (task: TaskWithDetails) =>
+      user &&
+      (user.id === task.assigned_by ||
+        ["admin", "ketua_kelas", "sekretaris"].includes(user.role));
 
-  const handleCreateTask = () => {
-    if (!newTask.title.trim() || !newTask.description.trim() || !newTask.dueDate) {
-      alert('Mohon lengkapi semua field yang diperlukan');
-      return;
-    }
-    
-    const task: Task = {
-      id: Date.now().toString(),
-      title: newTask.title,
-      description: newTask.description,
-      dueDate: new Date(newTask.dueDate),
-      priority: newTask.priority as 'rendah' | 'sedang' | 'tinggi',
-      status: 'pending',
-      type: newTask.type as 'pribadi' | 'kelas',
-      assignedTo: user?.id,
-      assignedBy: newTask.type === 'kelas' ? user?.id : undefined,
-      subject: newTask.subject,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    
-    // Add to tasks array (in real app, this would be API call)
-    tasks.push(task);
-    
-    setNewTask({
-      title: '',
-      description: '',
-      dueDate: '',
-      priority: 'sedang',
-      type: 'pribadi',
-      subject: ''
-    });
-  };
-
-  const handleUpdateTaskStatus = (taskId: string, newStatus: 'pending' | 'in_progress' | 'completed') => {
-    const taskIndex = tasks.findIndex(t => t.id === taskId);
-    if (taskIndex !== -1) {
-      tasks[taskIndex].status = newStatus;
-      tasks[taskIndex].updatedAt = new Date();
-    }
-  };
-
-  const handleDeleteTask = (taskId: string) => {
-    const taskIndex = tasks.findIndex(t => t.id === taskId);
-    if (taskIndex !== -1) {
-      tasks.splice(taskIndex, 1);
-    }
-  };
-
-  const TaskCard = ({ task }: { task: Task }) => (
-    <Card className="hover:shadow-md transition-all duration-200 group">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center space-x-2">
-            {getStatusIcon(task.status)}
-            <h3 className="font-medium group-hover:text-primary transition-colors">{task.title}</h3>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm">
-                <MoreHorizontal className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleUpdateTaskStatus(task.id, 'in_progress')}>
-                <Clock className="w-4 h-4 mr-2" />
-                Mulai Kerjakan
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleUpdateTaskStatus(task.id, 'completed')}>
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Tandai Selesai
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onClick={() => handleDeleteTask(task.id)}
-                className="text-destructive"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Hapus Tugas
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        
-        <p className="text-sm text-muted-foreground mb-3">{task.description}</p>
-        
-        <div className="flex flex-wrap gap-2 mb-3">
-          <Badge variant={getPriorityColor(task.priority)}>
-            {task.priority}
-          </Badge>
-          <Badge variant="outline" className={getStatusColor(task.status)}>
-            {task.status === 'completed' ? 'Selesai' : 
-             task.status === 'in_progress' ? 'Sedang Dikerjakan' : 'Pending'}
-          </Badge>
-          {task.subject && (
-            <Badge variant="secondary" className="flex items-center">
-              <BookOpen className="w-3 h-3 mr-1" />
-              {task.subject}
-            </Badge>
-          )}
-        </div>
-        
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <div className="flex items-center">
-            <Calendar className="w-4 h-4 mr-1" />
-            <span className={`${
-              new Date(task.dueDate) < new Date() && task.status !== 'completed' 
-                ? 'text-destructive font-medium' 
-                : ''
-            }`}>
-              {new Date(task.dueDate).toLocaleDateString('id-ID')}
-            </span>
-          </div>
-          {task.type === 'kelas' && task.assignedBy && (
-            <div className="flex items-center">
-              <User className="w-4 h-4 mr-1" />
-              Ditugaskan oleh admin
+    return (
+      <Card className="hover:shadow-md transition-all duration-200 group">
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center space-x-2">
+              {getStatusIcon(status)}
+              <h3 className="font-medium group-hover:text-primary transition-colors">
+                {task.title}
+              </h3>
             </div>
-          )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={!!actionLoading || !userSubmission}
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {/* Pastikan userSubmission ada sebelum menampilkan menu aksi */}
+                {userSubmission && (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() =>
+                        handleUpdateTaskStatus(userSubmission.id, "in_progress")
+                      }
+                    >
+                      <Clock className="w-4 h-4 mr-2" /> Mulai Kerjakan
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() =>
+                        handleUpdateTaskStatus(userSubmission.id, "completed")
+                      }
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" /> Tandai Selesai
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                {canManageTask(task) && (
+                  <DropdownMenuItem onClick={() => openEditDialog(task)}>
+                    <Pencil className="w-4 h-4 mr-2" /> Edit Tugas
+                  </DropdownMenuItem>
+                )}
+
+                {/* MODIFIKASI BAGIAN INI */}
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (canManageTask(task)) {
+                      openDeleteDialog(task);
+                    } else {
+                      setAnnoyPhase("faking"); // <-- Mulai alur ejekan
+                    }
+                  }}
+                  className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" /> Hapus Tugas
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          <p className="text-sm text-muted-foreground mb-3">
+            {task.description}
+          </p>
+
+          <div className="flex flex-wrap gap-2 mb-3">
+            <Badge variant="secondary" className="capitalize">
+              {task.type}
+            </Badge>
+            <Badge variant={getPriorityColor(task.priority)}>
+              {task.priority}
+            </Badge>
+            {task.subjects && (
+              <Badge variant="secondary" className="flex items-center">
+                <BookOpen className="w-3 h-3 mr-1" />
+                {task.subjects.name}
+              </Badge>
+            )}
+
+          </div>
+
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <div className="flex items-center">
+              <Calendar className="w-4 h-4 mr-1" />
+              <span
+                className={`${
+                  task.due_date &&
+                  new Date(task.due_date) < new Date() &&
+                  status !== "completed"
+                    ? "text-destructive font-medium"
+                    : ""
+                }`}
+              >
+                {task.due_date
+                  ? new Date(task.due_date).toLocaleDateString("id-ID", {
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric",
+                    })
+                  : "Tanpa batas waktu"}
+              </span>
+            </div>
+            {task.type === "kelas" && task.assigner && (
+              <div className="flex items-center">
+                <User className="w-4 h-4 mr-1" />
+                Oleh: {task.assigner.name}
+              </div>
+            )}
+          </div>
+
+          <div className="mt-3 w-full bg-muted rounded-full h-1">
+            <div
+              className={`h-1 rounded-full transition-all duration-300 ${
+                status === "completed"
+                  ? "bg-green-500 w-full"
+                  : status === "in_progress"
+                  ? "bg-blue-500 w-1/2"
+                  : "bg-gray-300 w-0"
+              }`}
+            />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
-        
-        {/* Progress indicator */}
-        <div className="mt-3 w-full bg-muted rounded-full h-1">
-          <div 
-            className={`h-1 rounded-full transition-all duration-300 ${
-              task.status === 'completed' ? 'bg-green-500 w-full' :
-              task.status === 'in_progress' ? 'bg-blue-500 w-1/2' :
-              'bg-gray-300 w-0'
-            }`}
-          />
-        </div>
-      </CardContent>
-    </Card>
-  );
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
+        {/* ... Bagian Header dan Tombol Tambah Tugas (tidak ada perubahan signifikan) ... */}
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Manajemen Tugas</h1>
-            <p className="text-muted-foreground">Kelola tugas pribadi dan tugas kelas</p>
+            <p className="text-muted-foreground">
+              Kelola tugas pribadi dan tugas kelas
+            </p>
           </div>
-          
-          <Dialog>
+          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="w-4 h-4 mr-2" />
@@ -256,40 +683,49 @@ export default function TasksPage() {
               <DialogHeader>
                 <DialogTitle>Tambah Tugas Baru</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
+              <div className="space-y-4 py-4">
+                {/* Form input tidak ada perubahan */}
                 <div>
                   <Label htmlFor="title">Judul Tugas</Label>
                   <Input
                     id="title"
                     value={newTask.title}
-                    onChange={(e) => setNewTask({...newTask, title: e.target.value})}
+                    onChange={(e) =>
+                      setNewTask({ ...newTask, title: e.target.value })
+                    }
                     placeholder="Masukkan judul tugas"
                   />
                 </div>
-                
                 <div>
                   <Label htmlFor="description">Deskripsi</Label>
                   <Textarea
                     id="description"
                     value={newTask.description}
-                    onChange={(e) => setNewTask({...newTask, description: e.target.value})}
+                    onChange={(e) =>
+                      setNewTask({ ...newTask, description: e.target.value })
+                    }
                     placeholder="Deskripsi tugas"
                   />
                 </div>
-                
                 <div>
                   <Label htmlFor="dueDate">Tanggal Deadline</Label>
                   <Input
                     id="dueDate"
                     type="date"
-                    value={newTask.dueDate}
-                    onChange={(e) => setNewTask({...newTask, dueDate: e.target.value})}
+                    value={newTask.due_date}
+                    onChange={(e) =>
+                      setNewTask({ ...newTask, due_date: e.target.value })
+                    }
                   />
                 </div>
-                
                 <div>
                   <Label htmlFor="priority">Prioritas</Label>
-                  <Select value={newTask.priority} onValueChange={(value) => setNewTask({...newTask, priority: value})}>
+                  <Select
+                    value={newTask.priority}
+                    onValueChange={(value: any) =>
+                      setNewTask({ ...newTask, priority: value })
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -300,10 +736,14 @@ export default function TasksPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                
                 <div>
                   <Label htmlFor="type">Jenis Tugas</Label>
-                  <Select value={newTask.type} onValueChange={(value) => setNewTask({...newTask, type: value})}>
+                  <Select
+                    value={newTask.type}
+                    onValueChange={(value: any) =>
+                      setNewTask({ ...newTask, type: value })
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -315,26 +755,49 @@ export default function TasksPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                
-                <div>
-                  <Label htmlFor="subject">Mata Kuliah</Label>
-                  <Input
-                    id="subject"
-                    value={newTask.subject}
-                    onChange={(e) => setNewTask({...newTask, subject: e.target.value})}
-                    placeholder="Nama mata kuliah"
-                  />
-                </div>
-                
-                <Button onClick={handleCreateTask} className="w-full">
-                  Simpan Tugas
+                {newTask.type === "kelas" && (
+                  <div>
+                    <Label htmlFor="subject">Mata Kuliah (Opsional)</Label>
+                    <Select
+                      value={newTask.subject_id || "none"}
+                      onValueChange={(value) =>
+                        setNewTask({
+                          ...newTask,
+                          subject_id: value === "none" ? "" : value,
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Pilih mata kuliah" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Tanpa Mata Kuliah</SelectItem>
+                        {subjects.map((subject) => (
+                          <SelectItem key={subject.id} value={subject.id}>
+                            {subject.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <Button
+                  onClick={handleCreateTask}
+                  className="w-full"
+                  disabled={actionLoading === "create"}
+                >
+                  {actionLoading === "create" ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    "Simpan Tugas"
+                  )}
                 </Button>
               </div>
             </DialogContent>
           </Dialog>
         </div>
 
-        {/* Filters */}
+        {/* ... Bagian Filter (tidak ada perubahan signifikan) ... */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -344,7 +807,7 @@ export default function TasksPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              <div>
+              <div className="lg:col-span-2">
                 <Label htmlFor="search">Cari Tugas</Label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -357,7 +820,6 @@ export default function TasksPage() {
                   />
                 </div>
               </div>
-              
               <div>
                 <Label htmlFor="filterType">Jenis</Label>
                 <Select value={filterType} onValueChange={setFilterType}>
@@ -371,10 +833,12 @@ export default function TasksPage() {
                   </SelectContent>
                 </Select>
               </div>
-              
               <div>
                 <Label htmlFor="filterPriority">Prioritas</Label>
-                <Select value={filterPriority} onValueChange={setFilterPriority}>
+                <Select
+                  value={filterPriority}
+                  onValueChange={setFilterPriority}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -386,7 +850,6 @@ export default function TasksPage() {
                   </SelectContent>
                 </Select>
               </div>
-              
               <div>
                 <Label htmlFor="filterStatus">Status</Label>
                 <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -396,46 +859,43 @@ export default function TasksPage() {
                   <SelectContent>
                     <SelectItem value="semua">Semua</SelectItem>
                     <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="in_progress">Sedang Dikerjakan</SelectItem>
+                    <SelectItem value="in_progress">Dikerjakan</SelectItem>
                     <SelectItem value="completed">Selesai</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              
-              <div className="flex items-end">
-                <Button variant="outline" className="w-full">
-                  Reset Filter
-                </Button>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Tasks Tabs */}
+        {/* ... Bagian Tabs dan daftar tugas ... */}
         <Tabs defaultValue="semua" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="semua">Semua Tugas ({filteredTasks.length})</TabsTrigger>
-            <TabsTrigger value="pribadi">Tugas Pribadi ({personalTasks.length})</TabsTrigger>
-            <TabsTrigger value="kelas">Tugas Kelas ({classTasks.length})</TabsTrigger>
+            <TabsTrigger value="semua">
+              Semua Tugas ({filteredTasks.length})
+            </TabsTrigger>
+            <TabsTrigger value="pribadi">
+              Tugas Pribadi ({personalTasks.length})
+            </TabsTrigger>
+            <TabsTrigger value="kelas">
+              Tugas Kelas ({classTasks.length})
+            </TabsTrigger>
           </TabsList>
-          
-          <TabsContent value="semua" className="space-y-4">
+          <TabsContent value="semua" className="space-y-4 pt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredTasks.map((task) => (
                 <TaskCard key={task.id} task={task} />
               ))}
             </div>
           </TabsContent>
-          
-          <TabsContent value="pribadi" className="space-y-4">
+          <TabsContent value="pribadi" className="space-y-4 pt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {personalTasks.map((task) => (
                 <TaskCard key={task.id} task={task} />
               ))}
             </div>
           </TabsContent>
-          
-          <TabsContent value="kelas" className="space-y-4">
+          <TabsContent value="kelas" className="space-y-4 pt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {classTasks.map((task) => (
                 <TaskCard key={task.id} task={task} />
@@ -444,6 +904,206 @@ export default function TasksPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* ... Dialog konfirmasi hapus (tidak ada perubahan) ... */}
+      {taskToDelete && (
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Anda yakin ingin menghapus?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tindakan ini tidak dapat dibatalkan. Ini akan menghapus tugas "
+                {taskToDelete.title}" secara permanen.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel
+                onClick={() => {
+                  setShowDeleteDialog(false);
+                  setTaskToDelete(null);
+                }}
+              >
+                Batal
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteTask}
+                disabled={!!actionLoading}
+              >
+                {actionLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  "Hapus"
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {/* DIALOG EJEKAN TERPUSAT */}
+      {/* DIALOG EJEKAN DENGAN MODE EKSTREM */}
+      <Dialog
+        open={annoyPhase !== "idle"}
+        onOpenChange={(open) => !open && closeAnnoyDialog()}
+      >
+        <DialogContent
+          className="max-w-sm dialog-kabur"
+          onInteractOutside={(e) => {
+            // Mencegah dialog tertutup saat klik di luar
+            e.preventDefault();
+          }}
+          onEscapeKeyDown={(e) => {
+            // Mencegah dialog tertutup saat tombol Escape ditekan
+            e.preventDefault();
+          }}
+        >
+          {annoyPhase === "faking" && (
+            // ... (konten progress bar tidak berubah) ...
+            <>
+              <DialogHeader>
+                <DialogTitle>Menghapus Tugas...</DialogTitle>
+              </DialogHeader>
+              <div className="py-4 space-y-4">
+                <p className="text-center text-muted-foreground min-h-[40px]">
+                  {fakeMessage}
+                </p>
+                <div className="w-full bg-muted rounded-full h-4">
+                  <div
+                    className={`h-4 rounded-full transition-all duration-300 ${
+                      fakeProgress < 99 ? "bg-primary" : "bg-destructive"
+                    }`}
+                    style={{ width: `${fakeProgress}%` }}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          {annoyPhase === "running" && (
+            <div className="h-[250px] relative p-4 flex flex-col justify-center items-center text-center">
+              <h3 className="text-2xl font-bold mb-2">Tertangkap! 😜</h3>
+              <p className="text-muted-foreground mb-4">
+                Udah dibilang nggak bisa, masih nekat. Sekarang coba tutup
+                dialog ini kalau bisa!
+              </p>
+              <Button
+                onClick={handleRunawayClick}
+                style={{
+                  position: "absolute",
+                  top: buttonPosition.top,
+                  left: buttonPosition.left,
+                  transform: buttonPosition.transform,
+                  // PERCEPAT TRANSISI GERAKANNYA
+                  transition: "top 0.15s ease-out, left 0.15s ease-out",
+                }}
+              >
+                {/* Pesan tombol yang lebih memotivasi untuk menyerah */}
+                {runawayClicks < 2
+                  ? "Tutup"
+                  : runawayClicks < 5
+                  ? "Lagi dong!"
+                  : "Hampir!"}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Tugas</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="edit-title">Judul Tugas</Label>
+              <Input
+                id="edit-title"
+                value={editTask.title}
+                onChange={(e) =>
+                  setEditTask({ ...editTask, title: e.target.value })
+                }
+                placeholder="Masukkan judul tugas"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-description">Deskripsi</Label>
+              <Textarea
+                id="edit-description"
+                value={editTask.description}
+                onChange={(e) =>
+                  setEditTask({ ...editTask, description: e.target.value })
+                }
+                placeholder="Deskripsi tugas"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-dueDate">Tanggal Deadline</Label>
+              <Input
+                id="edit-dueDate"
+                type="date"
+                value={editTask.due_date}
+                onChange={(e) =>
+                  setEditTask({ ...editTask, due_date: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-priority">Prioritas</Label>
+              <Select
+                value={editTask.priority}
+                onValueChange={(value: any) =>
+                  setEditTask({ ...editTask, priority: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="rendah">Rendah</SelectItem>
+                  <SelectItem value="sedang">Sedang</SelectItem>
+                  <SelectItem value="tinggi">Tinggi</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="edit-subject">Mata Kuliah (Opsional)</Label>
+              <Select
+                value={editTask.subject_id || "none"}
+                onValueChange={(value) =>
+                  setEditTask({
+                    ...editTask,
+                    subject_id: value === "none" ? "" : value,
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih mata kuliah" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Tanpa Mata Kuliah</SelectItem>
+                  {subjects.map((subject) => (
+                    <SelectItem key={subject.id} value={subject.id}>
+                      {subject.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              onClick={handleEditTask}
+              className="w-full"
+              disabled={actionLoading === `edit-${taskToEdit?.id}`}
+            >
+              {actionLoading === `edit-${taskToEdit?.id}` ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                "Simpan Perubahan"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
