@@ -21,6 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -60,6 +61,8 @@ import {
   Pencil,
 } from "lucide-react";
 
+import { format } from "date-fns";
+
 // --- PERUBAHAN 1: TIPE DATA BARU SESUAI STRUKTUR DATABASE ---
 // Tipe untuk entri di tabel 'task_submissions'
 type Submission = {
@@ -68,12 +71,14 @@ type Submission = {
   user_id: string;
 };
 
-// Tipe data utama yang digunakan di halaman ini
 type TaskWithDetails = Task & {
-  subjects: { id: string; name: string } | null;
-  assigner: { id: string; name: string } | null;
-  // Ini adalah array yang berisi status pengerjaan user yang login
-  // Backend akan memastikan array ini hanya berisi satu item untuk setiap tugas
+  // --- TAMBAHKAN ATAU PASTIKAN ADA PROPERTI INI ---
+  updated_at: string; // Wajib ada
+  created_at: string; // Wajib ada
+  editor: { id: string; name: string; role: string } | null; // Info user yang mengedit
+  // ---------------------------------------------
+  subjects: { id: string; name: string; lecturer: string } | null;
+  assigner: { id: string; name: string; role: string } | null;
   task_submissions: Submission[];
 };
 
@@ -90,6 +95,9 @@ export default function TasksPage() {
   const [filterType, setFilterType] = useState("semua");
   const [filterPriority, setFilterPriority] = useState("semua");
   const [filterStatus, setFilterStatus] = useState("semua");
+
+  const [showDetailDialog, setShowDetailDialog] = useState(false);
+  const [taskToView, setTaskToView] = useState<TaskWithDetails | null>(null);
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -111,7 +119,6 @@ export default function TasksPage() {
     left: "50%",
     transform: "translate(-50%, -50%)",
   });
-
 
   const [newTask, setNewTask] = useState({
     title: "",
@@ -343,6 +350,11 @@ export default function TasksPage() {
     }
   };
 
+  const openDetailDialog = (task: TaskWithDetails) => {
+    setTaskToView(task);
+    setShowDetailDialog(true);
+  };
+
   const openEditDialog = (task: TaskWithDetails) => {
     setTaskToEdit(task);
     setEditTask({
@@ -373,62 +385,63 @@ export default function TasksPage() {
   };
 
   // Fungsi untuk membuat tombol kabur
-const handleButtonEscape = (e: React.MouseEvent<HTMLElement>) => {
-  const button = e.currentTarget;
-  const buttonRect = button.getBoundingClientRect();
+  const handleButtonEscape = (e: React.MouseEvent<HTMLElement>) => {
+    const button = e.currentTarget;
+    const buttonRect = button.getBoundingClientRect();
 
-  const screenWidth = window.innerWidth;
-  const screenHeight = window.innerHeight;
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
 
-  const screenCenterX = screenWidth / 2;
-  const screenCenterY = screenHeight / 2;
+    const screenCenterX = screenWidth / 2;
+    const screenCenterY = screenHeight / 2;
 
-  const buttonCenterX = buttonRect.left + buttonRect.width / 2;
-  const buttonCenterY = buttonRect.top + buttonRect.height / 2;
+    const buttonCenterX = buttonRect.left + buttonRect.width / 2;
+    const buttonCenterY = buttonRect.top + buttonRect.height / 2;
 
-  let targetQuadrantX: "left" | "right" = buttonCenterX < screenCenterX ? "right" : "left";
-  let targetQuadrantY: "top" | "bottom" = buttonCenterY < screenCenterY ? "bottom" : "top";
+    let targetQuadrantX: "left" | "right" =
+      buttonCenterX < screenCenterX ? "right" : "left";
+    let targetQuadrantY: "top" | "bottom" =
+      buttonCenterY < screenCenterY ? "bottom" : "top";
 
-  const margin = 40; // aman dari tepi
-  const buttonWidth = buttonRect.width;
-  const buttonHeight = buttonRect.height;
+    const margin = 40; // aman dari tepi
+    const buttonWidth = buttonRect.width;
+    const buttonHeight = buttonRect.height;
 
-  let newTop: number;
-  let newLeft: number;
+    let newTop: number;
+    let newLeft: number;
 
-  // Y axis (top / bottom)
-  if (targetQuadrantY === "top") {
-    newTop = Math.max(
-      margin,
-      Math.random() * (screenCenterY - buttonHeight - margin)
-    );
-  } else {
-    newTop = Math.min(
-      screenHeight - buttonHeight - margin,
-      screenCenterY + Math.random() * (screenCenterY - buttonHeight - margin)
-    );
-  }
+    // Y axis (top / bottom)
+    if (targetQuadrantY === "top") {
+      newTop = Math.max(
+        margin,
+        Math.random() * (screenCenterY - buttonHeight - margin)
+      );
+    } else {
+      newTop = Math.min(
+        screenHeight - buttonHeight - margin,
+        screenCenterY + Math.random() * (screenCenterY - buttonHeight - margin)
+      );
+    }
 
-  // X axis (left / right)
-  if (targetQuadrantX === "left") {
-    newLeft = Math.max(
-      margin,
-      Math.random() * (screenCenterX - buttonWidth - margin)
-    );
-  } else {
-    newLeft = Math.min(
-      screenWidth - buttonWidth - margin,
-      screenCenterX + Math.random() * (screenCenterX - buttonWidth - margin)
-    );
-  }
+    // X axis (left / right)
+    if (targetQuadrantX === "left") {
+      newLeft = Math.max(
+        margin,
+        Math.random() * (screenCenterX - buttonWidth - margin)
+      );
+    } else {
+      newLeft = Math.min(
+        screenWidth - buttonWidth - margin,
+        screenCenterX + Math.random() * (screenCenterX - buttonWidth - margin)
+      );
+    }
 
-  setButtonPosition({
-    top: `${newTop}px`,
-    left: `${newLeft}px`,
-    transform: "translate(0, 0)",
-  });
-};
-
+    setButtonPosition({
+      top: `${newTop}px`,
+      left: `${newLeft}px`,
+      transform: "translate(0, 0)",
+    });
+  };
 
   // Fungsi yang dipanggil saat tombol kabur di-klik
   const handleRunawayClick = (e: React.MouseEvent<HTMLElement>) => {
@@ -513,8 +526,8 @@ const handleButtonEscape = (e: React.MouseEvent<HTMLElement>) => {
   };
 
   // --- PERUBAHAN 4: TASKCARD MENGGUNAKAN DATA SUBMISSION ---
+  // --- GANTI SELURUH FUNGSI TaskCard DENGAN INI ---
   const TaskCard = ({ task }: { task: TaskWithDetails }) => {
-    // Backend sudah memfilter, jadi kita bisa dengan aman ambil item pertama
     const userSubmission = task.task_submissions[0];
     const status = userSubmission?.status || "pending";
     const canManageTask = (task: TaskWithDetails) =>
@@ -522,134 +535,207 @@ const handleButtonEscape = (e: React.MouseEvent<HTMLElement>) => {
       (user.id === task.assigned_by ||
         ["admin", "ketua_kelas", "sekretaris"].includes(user.role));
 
+    // --- LOGIKA BARU UNTUK STATUS BARU & DIUBAH ---
+    const isNew = () => {
+      if (!task.created_at) return false;
+      const twoDaysInMs = 48 * 60 * 60 * 1000;
+      return (
+        new Date().getTime() - new Date(task.created_at).getTime() < twoDaysInMs
+      );
+    };
+
+    // Logika untuk cek apakah sudah diubah
+    // Dianggap 'diubah' jika waktu update > 1 menit setelah dibuat
+    const isEdited = () => {
+      if (!task.created_at || !task.updated_at) return false;
+      const createdAt = new Date(task.created_at).getTime();
+      const updatedAt = new Date(task.updated_at).getTime();
+      return updatedAt > createdAt + 60000; // Toleransi 1 menit
+    };
+
+    const taskIsEdited = isEdited();
+    // Tugas hanya dianggap 'baru' jika belum pernah diedit
+    const taskIsNew = isNew() && !taskIsEdited;
+
     return (
-      <Card className="hover:shadow-md transition-all duration-200 group">
-        <CardContent className="p-4">
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex items-center space-x-2">
-              {getStatusIcon(status)}
-              <h3 className="font-medium group-hover:text-primary transition-colors">
-                {task.title}
-              </h3>
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={!!actionLoading || !userSubmission}
-                >
-                  <MoreHorizontal className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {/* Pastikan userSubmission ada sebelum menampilkan menu aksi */}
-                {userSubmission && (
-                  <>
-                    <DropdownMenuItem
-                      onClick={() =>
-                        handleUpdateTaskStatus(userSubmission.id, "in_progress")
-                      }
-                    >
-                      <Clock className="w-4 h-4 mr-2" /> Mulai Kerjakan
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() =>
-                        handleUpdateTaskStatus(userSubmission.id, "completed")
-                      }
-                    >
-                      <CheckCircle className="w-4 h-4 mr-2" /> Tandai Selesai
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                  </>
-                )}
-                {canManageTask(task) && (
-                  <DropdownMenuItem onClick={() => openEditDialog(task)}>
-                    <Pencil className="w-4 h-4 mr-2" /> Edit Tugas
-                  </DropdownMenuItem>
-                )}
-
-                {/* MODIFIKASI BAGIAN INI */}
-                <DropdownMenuItem
-                  onClick={() => {
-                    if (canManageTask(task)) {
-                      openDeleteDialog(task);
-                    } else {
-                      setAnnoyPhase("faking"); // <-- Mulai alur ejekan
-                    }
-                  }}
-                  className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" /> Hapus Tugas
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          <p className="text-sm text-muted-foreground mb-3">
-            {task.description}
-          </p>
-
-          <div className="flex flex-wrap gap-2 mb-3">
-            <Badge variant="secondary" className="capitalize">
-              {task.type}
-            </Badge>
-            <Badge variant={getPriorityColor(task.priority)}>
-              {task.priority}
-            </Badge>
-            {task.subjects && (
-              <Badge variant="secondary" className="flex items-center">
-                <BookOpen className="w-3 h-3 mr-1" />
-                {task.subjects.name}
-              </Badge>
-            )}
-
-          </div>
-
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <div className="flex items-center">
-              <Calendar className="w-4 h-4 mr-1" />
-              <span
-                className={`${
-                  task.due_date &&
-                  new Date(task.due_date) < new Date() &&
-                  status !== "completed"
-                    ? "text-destructive font-medium"
-                    : ""
-                }`}
-              >
-                {task.due_date
-                  ? new Date(task.due_date).toLocaleDateString("id-ID", {
-                      day: "2-digit",
-                      month: "long",
-                      year: "numeric",
-                    })
-                  : "Tanpa batas waktu"}
-              </span>
-            </div>
-            {task.type === "kelas" && task.assigner && (
-              <div className="flex items-center">
-                <User className="w-4 h-4 mr-1" />
-                Oleh: {task.assigner.name}
+      <Card
+        onClick={() => openDetailDialog(task)}
+        className="cursor-pointer hover:shadow-lg transition-all duration-200 group flex flex-col h-full"
+      >
+        <CardContent className="p-4 flex flex-col flex-grow justify-between">
+          <div>
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-start space-x-2">
+                <div className="flex-shrink-0 pt-1">
+                  {getStatusIcon(status)}
+                </div>
+                <div className="flex flex-col">
+                  <div className="flex items-start flex-wrap gap-2">
+                    {taskIsNew && (
+                      <Badge className="bg-red-500 text-white whitespace-nowrap">
+                        Baru
+                      </Badge>
+                    )}
+                    {taskIsEdited && (
+                      <Badge
+                        variant="secondary"
+                        className="bg-yellow-500 whitespace-nowrap"
+                      >
+                        Diedit
+                      </Badge>
+                    )}
+                    <h3 className="font-medium group-hover:text-primary transition-colors">
+                      {task.title}
+                    </h3>
+                  </div>
+                </div>
               </div>
-            )}
+
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  asChild
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!!actionLoading || !userSubmission}
+                  >
+                    <MoreHorizontal className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {userSubmission && (
+                    <>
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleUpdateTaskStatus(
+                            userSubmission.id,
+                            "in_progress"
+                          );
+                        }}
+                      >
+                        <Clock className="w-4 h-4 mr-2" /> Mulai Kerjakan
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleUpdateTaskStatus(
+                            userSubmission.id,
+                            "completed"
+                          );
+                        }}
+                      >
+                        <CheckCircle className="w-4 h-4 mr-2" /> Tandai Selesai
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+                  {canManageTask(task) && (
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEditDialog(task);
+                      }}
+                    >
+                      <Pencil className="w-4 h-4 mr-2" /> Edit Tugas
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (canManageTask(task)) {
+                        openDeleteDialog(task);
+                      } else {
+                        setAnnoyPhase("faking");
+                      }
+                    }}
+                    className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" /> Hapus Tugas
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+              {task.description || "Tidak ada deskripsi."}
+            </p>
           </div>
 
-          <div className="mt-3 w-full bg-muted rounded-full h-1">
-            <div
-              className={`h-1 rounded-full transition-all duration-300 ${
-                status === "completed"
-                  ? "bg-green-500 w-full"
-                  : status === "in_progress"
-                  ? "bg-blue-500 w-1/2"
-                  : "bg-gray-300 w-0"
-              }`}
-            />
+          <div>
+            <div className="flex flex-wrap gap-2 mb-3">
+              <Badge variant="secondary" className="capitalize">
+                {task.type}
+              </Badge>
+              <Badge variant={getPriorityColor(task.priority)}>
+                {task.priority}
+              </Badge>
+              {task.subjects && (
+                <Badge variant="secondary" className="flex items-center">
+                  <BookOpen className="w-3 h-3 mr-1" />
+                  {task.subjects.name}
+                </Badge>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <div className="flex items-center mt-2">
+                <Calendar className="w-4 h-4 mr-1" />
+                <span
+                  className={`${
+                    task.due_date &&
+                    new Date(task.due_date) < new Date() &&
+                    status !== "completed"
+                      ? "text-destructive font-medium"
+                      : ""
+                  }`}
+                >
+                  {task.due_date
+                    ? new Date(task.due_date).toLocaleDateString("id-ID", {
+                        day: "2-digit",
+                        month: "long",
+                        year: "numeric",
+                      })
+                    : "Tanpa batas waktu"}
+                </span>
+              </div>
+              {task.type === "kelas" && task.assigner && (
+                <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
+                  {task.type === "kelas" && task.assigner && (
+                    <div className="flex items-center">
+                      <User className="w-3 h-3 mr-1" />
+                      Oleh: {task.assigner.name}
+                      <Badge
+                        variant="secondary"
+                        className="bg-gray-500 text-white ml-2 flex items-center"
+                      >
+                        {task.assigner.role}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-3 w-full bg-muted rounded-full h-1">
+              <div
+                className={`h-1 rounded-full transition-all duration-300 ${
+                  status === "completed"
+                    ? "bg-green-500 w-full"
+                    : status === "in_progress"
+                    ? "bg-blue-500 w-1/2"
+                    : "bg-gray-300 w-0"
+                }`}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
     );
   };
+  // --- BATAS PERUBAHAN ---
 
   if (loading) {
     return (
@@ -875,11 +961,9 @@ const handleButtonEscape = (e: React.MouseEvent<HTMLElement>) => {
               Semua Tugas ({filteredTasks.length})
             </TabsTrigger>
             <TabsTrigger value="pribadi">
-              Tugas Pribadi ({personalTasks.length})
+              Pribadi ({personalTasks.length})
             </TabsTrigger>
-            <TabsTrigger value="kelas">
-              Tugas Kelas ({classTasks.length})
-            </TabsTrigger>
+            <TabsTrigger value="kelas">Kelas ({classTasks.length})</TabsTrigger>
           </TabsList>
           <TabsContent value="semua" className="space-y-4 pt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1102,6 +1186,159 @@ const handleButtonEscape = (e: React.MouseEvent<HTMLElement>) => {
               )}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
+        <DialogContent className="max-w-lg">
+          {taskToView && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-2xl">
+                  {taskToView.title}
+                </DialogTitle>
+                <div className="flex items-center gap-2 pt-2">
+                  <Badge variant="secondary" className="capitalize">
+                    {taskToView.type}
+                  </Badge>
+                  <Badge variant={getPriorityColor(taskToView.priority)}>
+                    {taskToView.priority}
+                  </Badge>
+                  {taskToView.subjects && (
+                    <Badge variant="secondary" className="flex items-center">
+                      <BookOpen className="w-3 h-3 mr-1" />
+                      {taskToView.subjects.name}
+                    </Badge>
+                  )}
+                </div>
+              </DialogHeader>
+              <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                  {taskToView.description ||
+                    "Tidak ada deskripsi untuk tugas ini."}
+                </p>
+                <hr />
+                <div className="text-sm text-muted-foreground space-y-2">
+                  <div className="flex items-center">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    <strong>Deadline:</strong>&nbsp;
+                    {taskToView.due_date
+                      ? new Date(taskToView.due_date).toLocaleDateString(
+                          "id-ID",
+                          {
+                            weekday: "long",
+                            day: "2-digit",
+                            month: "long",
+                            year: "numeric",
+                          }
+                        )
+                      : "Tanpa batas waktu"}
+                  </div>
+                  <div className="flex items-center">
+                    <User className="w-4 h-4 mr-2" />
+                    <strong>Dosen Pengampu:</strong>&nbsp;
+                    {taskToView.subjects?.lecturer || "Tidak diketahui"}
+                  </div>
+                  {taskToView.type === "kelas" && taskToView.assigner && (
+                    <div className="flex items-center">
+                      <User className="w-4 h-4 mr-2" />
+                      <strong>Dibuat oleh:</strong>&nbsp;
+                      {taskToView.assigner.name}
+                      <h3 className=" text-muted-foreground ml-2">
+                        {taskToView.created_at &&
+                          new Date(taskToView.created_at).toLocaleDateString(
+                            "id-ID",
+                            {
+                              day: "2-digit",
+                              month: "2-digit", // atau "numeric" kalau tidak ingin 0 di depan
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )}
+                      </h3>
+                      <Badge
+                        variant="secondary"
+                        className="bg-gray-500 text-white ml-2 flex items-center"
+                      >
+                        {taskToView.assigner.role}
+                      </Badge>
+                    </div>
+                  )}
+                  {new Date(taskToView.updated_at).getTime() >
+                    new Date(taskToView.created_at).getTime() + 60000 &&
+                    taskToView.editor && (
+                      <div className="flex items-center">
+                        <Pencil className="w-4 h-4 mr-2" />
+                        <strong>Terakhir diubah oleh:</strong>&nbsp;
+                        {taskToView.editor.name}
+                        <h3 className=" text-muted-foreground ml-2">
+                          {taskToView.updated_at &&
+                            new Date(taskToView.updated_at).toLocaleDateString(
+                              "id-ID",
+                              {
+                                day: "2-digit",
+                                month: "2-digit", // atau "numeric" kalau tidak ingin 0 di depan
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            )}
+                        </h3>
+                        <Badge
+                          variant="secondary"
+                          className="bg-yellow-500 text-white ml-2 flex items-center"
+                        >
+                          {taskToView.editor.role}
+                        </Badge>
+                      </div>
+                    )}
+                </div>
+              </div>
+              <DialogFooter className="sm:justify-start gap-2">
+                <Button
+                  onClick={() => {
+                    handleUpdateTaskStatus(
+                      taskToView.task_submissions[0].id,
+                      "in_progress"
+                    );
+                    setShowDetailDialog(false);
+                  }}
+                  disabled={
+                    !!actionLoading ||
+                    taskToView.task_submissions[0]?.status === "in_progress"
+                  }
+                >
+                  <Clock className="w-4 h-4 mr-2" />
+                  Mulai Kerjakan
+                </Button>
+                <Button
+                  onClick={() => {
+                    handleUpdateTaskStatus(
+                      taskToView.task_submissions[0].id,
+                      "completed"
+                    );
+                    setShowDetailDialog(false);
+                  }}
+                  disabled={
+                    !!actionLoading ||
+                    taskToView.task_submissions[0]?.status === "completed"
+                  }
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Tandai Selesai
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDetailDialog(false)}
+                  disabled={!!actionLoading}
+                >
+                  Tutup
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </DashboardLayout>

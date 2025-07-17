@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { loginWithNIM, testSupabaseConnection } from '@/lib/auth-supabase';
+import { supabase } from '@/lib/supabase';
 import {
   GraduationCap,
   Sun,
@@ -199,26 +200,90 @@ export default function LoginForm() {
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
 
-  const loadAnnouncements = () => {
-    const mockAnnouncements: AnnouncementNotification[] = [
-        { id: '1', title: 'Deadline Tugas Pemrograman Web', message: 'Tugas Project Final Website harus dikumpulkan paling lambat tanggal 20 Juli 2025 pukul 23:59 WIB', type: 'deadline', date: '20 Juli 2025', urgent: true },
-        { id: '2', title: 'Tugas Baru: Analisis Algoritma', message: 'Tugas baru telah tersedia di sistem. Silakan kerjakan analisis kompleksitas algoritma sorting.', type: 'assignment', date: '15 Juli 2025', urgent: false },
-        { id: '3', title: 'Libur Hari Raya', message: 'Besok tanggal 17 Juli 2025 adalah hari libur nasional. Tidak ada kuliah.', type: 'holiday', date: '17 Juli 2025', urgent: false },
-        { id: '4', title: 'Ujian Tengah Semester', message: 'UTS akan dilaksanakan pada tanggal 25-30 Juli 2025. Persiapkan diri dengan baik.', type: 'exam', date: '25 Juli 2025', urgent: false },
-        { id: '5', title: 'Pengumuman Kelas', message: 'Kuliah hari Jumat dipindah ke ruang Lab Komputer 2 karena ada perbaikan AC.', type: 'announcement', date: '14 Juli 2025', urgent: false }
-    ];
-    setNotifications(mockAnnouncements);
-    setShowNotifications(true);
+const loadAnnouncements = async () => {
+    try {
+      // 1. Ambil data pengumuman dari tabel baru kita
+      const { data, error } = await supabase
+        .from('announcements')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(5); // Ambil 5 pengumuman terbaru
+
+      if (error) throw error;
+
+      if (data) {
+        // 2. Format data agar sesuai dengan interface AnnouncementNotification
+        const formattedAnnouncements = data.map(item => ({
+          ...item,
+          // Ubah created_at menjadi format tanggal yang bisa dibaca
+          date: new Date(item.created_at).toLocaleDateString('id-ID', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+          })
+        })) as AnnouncementNotification[];
+        
+        setNotifications(formattedAnnouncements);
+        
+        // Hanya tampilkan popup jika ada pengumuman
+        if (formattedAnnouncements.length > 0) {
+          setShowNotifications(true);
+        }
+      }
+    } catch (err) {
+        console.error("Gagal memuat pengumuman:", err);
+    }
   };
 
   const dismissNotification = (id: string) => {
     setNotifications(prev => prev.filter(notif => notif.id !== id));
   };
 
+
+  // useEffect sebelumnya
   useEffect(() => {
-    const timer = setTimeout(loadAnnouncements, 2000);
+    const timer = setTimeout(() => {
+        // Sekarang panggil fungsi async yang baru
+        loadAnnouncements();
+    }, 2000); 
     return () => clearTimeout(timer);
   }, []);
+
+  // ---> TAMBAHKAN KODE BLOK INI <---
+  // useEffect untuk mendengarkan pengumuman baru secara real-time
+  useEffect(() => {
+    const channel = supabase
+      .channel('public-announcements') // Nama channel publik kita
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT', // Kita hanya peduli saat ada pengumuman BARU
+          schema: 'public',
+          table: 'announcements',
+        },
+        (payload) => {
+          console.log('Pengumuman baru diterima!', payload.new);
+          // Format data baru dan tambahkan ke bagian atas daftar notifikasi
+          const newAnnouncement = {
+            ...(payload.new as any),
+            date: new Date(payload.new.created_at).toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            })
+          } as AnnouncementNotification;
+
+          setNotifications(prev => [newAnnouncement, ...prev]);
+          setShowNotifications(true); // Pastikan popup muncul jika tertutup
+        }
+      )
+      .subscribe();
+
+    // Fungsi cleanup untuk berhenti mendengarkan saat komponen di-unmount
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []); // <-- Pastikan array dependensi kosong agar hanya berjalan sekali
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -253,7 +318,7 @@ export default function LoginForm() {
     };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-[url('/images/bg-keren.jpg')] bg-cover bg-center dark:bg-[url('/images/bg-gelap.jpg')]">
       
       {/* Panggil komponen wrapper notifikasi yang baru */}
       <NotificationWrapper
@@ -288,6 +353,16 @@ export default function LoginForm() {
               <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white">
                 Login
               </CardTitle>
+              <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <Bell className="w-4 h-4" />
+              </Button>
+              
               <Button
                 variant="ghost"
                 size="sm"
@@ -295,7 +370,8 @@ export default function LoginForm() {
                 className="rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
               >
                 {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-              </Button>
+                </Button>
+                </div>
             </div>
           </CardHeader>
 
@@ -325,30 +401,35 @@ export default function LoginForm() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium text-gray-700 dark:text-gray-300">Password</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={handleInputChange(setPassword)}
-                    placeholder="Masukkan password"
-                    required
-                    disabled={isLoading}
-                    className="h-11 pr-12 border-gray-300 dark:border-gray-600 focus:border-primary focus:ring-1 focus:ring-primary"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-800"
-                    disabled={isLoading}
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4 text-gray-500" /> : <Eye className="w-4 h-4 text-gray-500" />}
-                  </Button>
-                </div>
-              </div>
+  <Label htmlFor="password" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+    Password
+  </Label>
+  <div className="relative">
+    <Input
+      id="password"
+      type={showPassword ? 'text' : 'password'}
+      value={password}
+      onChange={handleInputChange(setPassword)}
+      placeholder="Masukkan password"
+      required
+      disabled={isLoading}
+      className="h-11 pr-12 border-gray-300 dark:border-gray-600 focus:border-primary focus:ring-1 focus:ring-primary"
+    />
+    <button
+      type="button"
+      onClick={() => setShowPassword(!showPassword)}
+      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none"
+      disabled={isLoading}
+    >
+      {showPassword ? (
+        <EyeOff className="w-5 h-5" />
+      ) : (
+        <Eye className="w-5 h-5" />
+      )}
+    </button>
+  </div>
+</div>
+
 
               <Button
                 type="submit"

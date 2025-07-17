@@ -100,14 +100,13 @@ export async function POST(request: Request) {
 
     // 4. Buat submissions berdasarkan type
     if (type === "kelas") {
-      // Untuk tugas kelas - assign ke SEMUA user (termasuk admin & inactive)
+      // Untuk tugas kelas - assign ke SEMUA user
       const { data: allUsers, error: userError } = await supabaseAdmin
         .from("profiles")
         .select("id");
 
       if (userError) {
         console.error("Error fetching all users:", userError);
-        // Rollback task jika perlu
         await supabaseAdmin.from("tasks").delete().eq("id", newTask.id);
         return NextResponse.json(
           {
@@ -117,9 +116,7 @@ export async function POST(request: Request) {
         );
       }
 
-      // Validasi apakah ada user di database
       if (!allUsers || allUsers.length === 0) {
-        // Rollback task
         await supabaseAdmin.from("tasks").delete().eq("id", newTask.id);
         return NextResponse.json(
           {
@@ -129,11 +126,68 @@ export async function POST(request: Request) {
         );
       }
 
+      // =================================================================
+      // === AWAL DARI LOGIKA BARU: MEMBUAT NOTIFIKASI UNTUK TUGAS KELAS ===
+      // =================================================================
+      const notificationsToInsert = allUsers
+        .filter((user) => user.id !== taskData.assigned_by) // Jangan kirim notif ke pembuat tugas
+        .map((user) => ({
+          user_id: user.id, // Penerima notifikasi
+          actor_id: taskData.assigned_by, // Pelaku (yang membuat tugas)
+          event_type: "new_task",
+          title: `Tugas Kelas Baru: ${taskData.title}`,
+          message: `Sebuah tugas baru telah ditambahkan. Segera periksa daftar tugas Anda.`,
+          link_to: `/dashboard/tasks`, // Nanti bisa diubah ke link detail tugas, misal: `/dashboard/tasks/${newTask.id}`
+          entity_id: newTask.id, // ID dari tugas yang baru dibuat
+        }));
+
+      if (notificationsToInsert.length > 0) {
+        const { error: notificationError } = await supabaseAdmin
+          .from("notifications")
+          .insert(notificationsToInsert);
+
+        if (notificationError) {
+          // Jika gagal membuat notifikasi, kita hanya akan mencatat errornya
+          // dan tidak menggagalkan seluruh proses pembuatan tugas.
+          console.error(
+            "Peringatan: Gagal membuat notifikasi untuk tugas kelas:",
+            notificationError
+          );
+        }
+      }
+      // ===============================================================
+      // === AKHIR DARI LOGIKA BARU: MEMBUAT NOTIFIKASI                ===
+      // ===============================================================
+      // ===================================================================
+      // === AWAL DARI LOGIKA BARU: MEMBUAT PENGUMUMAN PUBLIK OTOMATIS ===
+      // ===================================================================
+      // Kita buat juga pengumuman publik agar muncul di halaman login
+      try {
+        await supabaseAdmin.from("announcements").insert({
+          title: `Tugas Kelas Baru: ${taskData.title}`,
+          message:
+            "Sebuah tugas baru telah ditambahkan untuk seluruh kelas. Segera periksa daftar tugas Anda setelah login.",
+          type: "assignment", // Tipe ini sesuai dengan yang ada di UI login
+          // Jadikan 'urgent' jika prioritas tugasnya tinggi
+          urgent: taskData.priority === "tinggi",
+        });
+      } catch (announcementError) {
+        // Jika gagal membuat pengumuman, proses utama tidak boleh gagal.
+        // Cukup catat errornya di server.
+        console.error(
+          "Peringatan: Gagal membuat pengumuman publik untuk tugas kelas:",
+          announcementError
+        );
+      }
+      // =================================================================
+      // === AKHIR DARI LOGIKA BARU                                    ===
+      // =================================================================
+
       // Bulk insert submissions untuk semua user
       const submissionsToInsert = allUsers.map((user) => ({
         task_id: newTask.id,
         user_id: user.id,
-        status: "pending", // atau bisa dihilangkan, akan default 'pending'
+        status: "pending" as const,
       }));
 
       const { error: submissionError } = await supabaseAdmin
@@ -142,7 +196,6 @@ export async function POST(request: Request) {
 
       if (submissionError) {
         console.error("Error creating class submissions:", submissionError);
-        // Rollback task
         await supabaseAdmin.from("tasks").delete().eq("id", newTask.id);
         return NextResponse.json(
           {
@@ -152,7 +205,6 @@ export async function POST(request: Request) {
         );
       }
 
-      // Return success dengan info berapa user yang ditugaskan
       return NextResponse.json(
         {
           message: "Tugas kelas berhasil ditambahkan",
@@ -166,16 +218,15 @@ export async function POST(request: Request) {
     } else if (type === "pribadi") {
       // Untuk tugas pribadi - assign ke user tertentu
       const { error: submissionError } = await supabaseAdmin
-  .from('task_submissions')
-  .insert({
-    task_id: newTask.id,
-    user_id: taskData.assigned_to,
-    status: 'pending', // atau bisa dihilangkan
-  });
+        .from("task_submissions")
+        .insert({
+          task_id: newTask.id,
+          user_id: taskData.assigned_to!,
+          status: "pending",
+        });
 
       if (submissionError) {
         console.error("Error creating personal submission:", submissionError);
-        // Rollback task
         await supabaseAdmin.from("tasks").delete().eq("id", newTask.id);
         return NextResponse.json(
           {
@@ -185,7 +236,25 @@ export async function POST(request: Request) {
         );
       }
 
-      // Return success dengan info user yang ditugaskan
+      // ===================================================================
+      // === AWAL DARI LOGIKA BARU: MEMBUAT NOTIFIKASI UNTUK TUGAS PRIBADI ===
+      // ===================================================================
+      // Hanya kirim notifikasi jika tugas diberikan oleh orang lain
+      if (taskData.assigned_by !== taskData.assigned_to) {
+        await supabaseAdmin.from("notifications").insert({
+          user_id: taskData.assigned_to!, // Penerima notifikasi
+          actor_id: taskData.assigned_by, // Pelaku (yang memberi tugas)
+          event_type: "new_personal_task",
+          title: `Tugas Pribadi Baru: ${taskData.title}`,
+          message: `Anda diberi tugas pribadi baru.`,
+          link_to: `/dashboard/tasks`,
+          entity_id: newTask.id,
+        });
+      }
+      // =================================================================
+      // === AKHIR DARI LOGIKA BARU                                    ===
+      // =================================================================
+
       return NextResponse.json(
         {
           message: "Tugas pribadi berhasil ditambahkan",
@@ -209,7 +278,8 @@ export async function POST(request: Request) {
   }
 }
 
-// --- FUNGSI UNTUK MENGAMBIL SEMUA TUGAS (LOGIKA DIUBAH TOTAL) ---
+// --- FUNGSI UNTUK MENGAMBIL SEMUA TUGAS (GET) ---
+// Fungsi GET tidak perlu diubah
 export async function GET() {
   try {
     const cookieStore = cookies();
@@ -229,15 +299,14 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Ambil semua tugas kelas dan tugas pribadi untuk user ini,
-    // dan hanya ambil submission milik user ini
     const { data, error } = await supabaseAdmin
       .from("tasks")
       .select(
         `
         *,
-        subjects ( id, name ),
-        assigner:profiles!tasks_assigned_by_fkey ( id, name ),
+        subjects ( id, name, lecturer ),
+        assigner:profiles!tasks_assigned_by_fkey ( id, name, role ),
+        editor:profiles!tasks_last_edited_by_id_fkey ( id, name, role ),
         task_submissions (
           id,
           status,
@@ -246,7 +315,8 @@ export async function GET() {
       `
       )
       .or(`type.eq.kelas,assigned_to.eq.${userId}`)
-      .eq('task_submissions.user_id', userId); // <--- filter submission milik user ini saja
+      .eq("task_submissions.user_id", userId)
+      .order("created_at", { ascending: false });
 
     if (error) throw error;
 
