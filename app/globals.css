@@ -2,7 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Mobile-specific styles */
+/* Mobile-first design principles */
+html {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Safe area handling for mobile devices */
 .safe-area-pb {
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -11,46 +17,203 @@
   padding-top: env(safe-area-inset-top);
 }
 
+.safe-area-pl {
+  padding-left: env(safe-area-inset-left);
+}
+
+.safe-area-pr {
+  padding-right: env(safe-area-inset-right);
+}
+
 /* Mobile touch improvements */
-@media (max-width: 768px) {
-  * {
-    -webkit-tap-highlight-color: transparent;
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, [role="button"], .interactive {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+input, textarea, select {
+  font-size: 16px !important; /* Prevents zoom on iOS */
+  border-radius: 12px;
+}
+
+/* Hide scrollbar but keep functionality */
+::-webkit-scrollbar {
+  display: none;
+}
+
+* {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Mobile-optimized card design */
+.mobile-card {
+  border-radius: 16px;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  border: none;
+  background: white;
+}
+
+.dark .mobile-card {
+  background: rgb(31 41 55);
+}
+
+/* Mobile button styles */
+.mobile-button {
+  border-radius: 12px;
+  min-height: 44px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+/* Mobile input styles */
+.mobile-input {
+  border-radius: 12px;
+  border: 2px solid rgb(229 231 235);
+  min-height: 44px;
+  font-size: 16px;
+}
+
+.dark .mobile-input {
+  border-color: rgb(75 85 99);
+}
+
+/* Mobile navigation styles */
+.mobile-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 8px;
+  border-radius: 16px;
+  transition: all 0.3s ease;
+  min-width: 0;
+  flex: 1;
+  position: relative;
+  transform-origin: center;
+}
+
+.mobile-nav-active {
+  background: hsl(var(--primary));
+  color: white;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px hsl(var(--primary) / 0.3);
+}
+
+.mobile-nav-inactive {
+  color: rgb(107 114 128);
+  background: transparent;
+}
+
+.dark .mobile-nav-inactive {
+  color: rgb(156 163 175);
+}
+
+.mobile-nav-inactive:hover {
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.05);
+}
+
+/* Smooth animations */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Glass effect for modern look */
+.glass-effect {
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark .glass-effect {
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Custom scrollbar for desktop */
+@media (min-width: 768px) {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
   }
   
-  button, [role="button"], .interactive {
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+    border-radius: 3px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground));
+    border-radius: 3px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary));
+  }
+}
+
+/* Focus styles for accessibility */
+.focus-visible:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+
+/* Mobile-specific component improvements */
+.mobile-header {
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.95);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.dark .mobile-header {
+  background: rgba(17, 24, 39, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mobile-bottom-nav {
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.95);
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.dark .mobile-bottom-nav {
+  background: rgba(17, 24, 39, 0.95);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Improved touch targets */
+@media (max-width: 768px) {
+  .touch-target {
     min-height: 44px;
     min-width: 44px;
   }
   
-  input, textarea, select {
-    font-size: 16px !important;
-    border-radius: 12px;
+  .card-interactive {
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
   
-  .card {
-    border-radius: 16px;
-    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  .card-interactive:active {
+    transform: scale(0.98);
   }
 }
 
-/* Smooth scrolling for mobile */
-html {
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Hide scrollbar on mobile */
-@media (max-width: 768px) {
-  ::-webkit-scrollbar {
-    display: none;
-  }
-  
-  * {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-}
-
+/* Color system */
 :root {
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;
@@ -130,95 +293,31 @@ html {
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
-@layer components {
-  .animate-fade-in {
-    animation: fadeIn 0.3s ease-in-out;
-  }
-  
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-      transform: translateY(10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  
-  .glass-effect {
-    backdrop-filter: blur(10px);
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-  }
-  
-  .dark .glass-effect {
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-  }
-  
-  /* Custom scrollbar */
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-  }
-  
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: hsl(var(--muted));
-    border-radius: 3px;
-  }
-  
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: hsl(var(--muted-foreground));
-    border-radius: 3px;
-  }
-  
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--primary));
-  }
-  
-  /* Smooth transitions */
-  * {
-    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-  }
-  
-  /* Focus styles */
-  .focus-visible:focus-visible {
-    outline: 2px solid hsl(var(--primary));
-    outline-offset: 2px;
-  }
-  
-  /* Mobile-specific component styles */
-  @media (max-width: 768px) {
-    .mobile-card {
-      @apply rounded-xl shadow-sm border-0 bg-white dark:bg-gray-800;
-    }
-    
-    .mobile-button {
-      @apply rounded-xl min-h-[44px] font-medium;
-    }
-    
-    .mobile-input {
-      @apply rounded-xl border-gray-200 dark:border-gray-700 min-h-[44px];
-    }
-    
-    .mobile-nav-item {
-      @apply flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 min-w-0 flex-1 relative;
-    }
-    
-    .mobile-nav-active {
-      @apply bg-primary/10 text-primary;
-    }
-    
-    .mobile-nav-inactive {
-      @apply text-gray-600 dark:text-gray-400 hover:text-primary hover:bg-primary/5;
-    }
-  }
-}
-
+/* Remove dialog close button for mobile-first approach */
 .dialog-kabur > button {
   display: none;
 }
 
+/* Mobile-optimized transitions */
+@layer components {
+  .mobile-transition {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .mobile-scale-press:active {
+    transform: scale(0.95);
+  }
+  
+  .mobile-bounce:active {
+    animation: mobileBounce 0.3s ease;
+  }
+}
+
+@keyframes mobileBounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(0.95); }
+}

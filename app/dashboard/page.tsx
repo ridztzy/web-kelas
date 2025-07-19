@@ -2,16 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import MobileLayout from '@/components/layout/MobileLayout';
-import MobileCard from '@/components/layout/MobileCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
   CheckSquare, Clock, AlertTriangle, Calendar, BookOpen, 
-  MessageSquare, Plus, ArrowRight, Loader2 
+  MessageSquare, Plus, ArrowRight, Loader2, TrendingUp,
+  Users, Bell, Search
 } from 'lucide-react';
+
+// Mobile Layout Component
+import MobileLayout from '@/components/layout/MobileLayout';
 
 // Tipe data yang sesuai dengan API response
 interface TaskSubmission {
@@ -72,7 +74,6 @@ export default function Dashboard() {
 
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
-        // Di sini Anda bisa menambahkan notifikasi toast jika terjadi error
       } finally {
         setLoading(false);
       }
@@ -96,7 +97,6 @@ export default function Dashboard() {
   };
 
   const todaySchedule = schedules.filter(schedule => schedule.day === getTodayDay());
-
   const highPriorityTasksCount = tasks.filter(task => task.priority === 'tinggi').length;
 
   const getGreeting = () => {
@@ -119,74 +119,67 @@ export default function Dashboard() {
 
   return (
     <MobileLayout>
-      <div className="space-y-0">
+      <div className="space-y-0 pb-4">
         {/* Welcome Section */}
-        <div className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground mx-4 mt-4 p-6 rounded-xl shadow-lg">
-          <h1 className="text-xl font-bold mb-2">
-            {getGreeting()}, {user?.name}!
-          </h1>
-          <p className="text-primary-foreground/80 text-sm">
-            Mari kelola tugas dan jadwal kelas Anda hari ini
-          </p>
+        <div className="bg-gradient-to-br from-primary via-primary/90 to-primary/80 text-primary-foreground mx-4 mt-4 p-6 rounded-2xl shadow-lg">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-xl font-bold mb-1">
+                {getGreeting()}, {user?.name?.split(' ')[0]}!
+              </h1>
+              <p className="text-primary-foreground/80 text-sm">
+                Mari kelola tugas dan jadwal kelas Anda hari ini
+              </p>
+            </div>
+            <div className="bg-white/20 p-3 rounded-full">
+              <Bell className="w-6 h-6" />
+            </div>
+          </div>
+          
+          {/* Quick Stats */}
+          <div className="grid grid-cols-3 gap-3 mt-4">
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 text-center">
+              <div className="text-2xl font-bold">{pendingTasks.length}</div>
+              <div className="text-xs opacity-80">Tugas Pending</div>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 text-center">
+              <div className="text-2xl font-bold">{completedTasks.length}</div>
+              <div className="text-xs opacity-80">Selesai</div>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 text-center">
+              <div className="text-2xl font-bold">{todaySchedule.length}</div>
+              <div className="text-xs opacity-80">Jadwal Hari Ini</div>
+            </div>
+          </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 gap-3 mx-4 mt-4">
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-blue-600 font-medium">Tugas Pending</p>
-                <p className="text-2xl font-bold text-blue-600">{pendingTasks.length}</p>
-                <p className="text-xs text-muted-foreground">
-                {highPriorityTasksCount} prioritas tinggi
-                </p>
-              </div>
-              <Clock className="w-8 h-8 text-blue-600 opacity-80" />
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-green-600 font-medium">Tugas Selesai</p>
-                <p className="text-2xl font-bold text-green-600">{completedTasks.length}</p>
-                <p className="text-xs text-muted-foreground">
-                Total selesai
-                </p>
-              </div>
-              <CheckSquare className="w-8 h-8 text-green-600 opacity-80" />
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border border-orange-200 dark:border-orange-800 rounded-xl p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-orange-600 font-medium">Jadwal Hari Ini</p>
-                <p className="text-2xl font-bold text-orange-600">{todaySchedule.length}</p>
-                <p className="text-xs text-muted-foreground">
-                Mata kuliah
-                </p>
-              </div>
-              <Calendar className="w-8 h-8 text-orange-600 opacity-80" />
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border border-purple-200 dark:border-purple-800 rounded-xl p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-purple-600 font-medium">Pesan Baru</p>
-                <p className="text-2xl font-bold text-purple-600">5</p>
-                <p className="text-xs text-muted-foreground">Chat kelas</p>
-              </div>
-              <MessageSquare className="w-8 h-8 text-purple-600 opacity-80" />
-            </div>
+        {/* Quick Actions */}
+        <div className="mx-4 mt-6">
+          <h2 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Aksi Cepat</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <Button 
+              variant="outline" 
+              className="h-20 flex-col space-y-2 border-2 border-dashed hover:border-solid hover:bg-primary/5 rounded-xl" 
+              onClick={() => router.push('/dashboard/tasks')}
+            >
+              <Plus className="w-6 h-6 text-primary" />
+              <span className="text-sm font-medium">Tambah Tugas</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              className="h-20 flex-col space-y-2 border-2 border-dashed hover:border-solid hover:bg-primary/5 rounded-xl" 
+              onClick={() => router.push('/dashboard/chat')}
+            >
+              <MessageSquare className="w-6 h-6 text-primary" />
+              <span className="text-sm font-medium">Chat Kelas</span>
+            </Button>
           </div>
         </div>
 
         {/* Recent Tasks */}
-        <MobileCard 
-          title="Tugas Terbaru" 
-          headerAction={
+        <div className="mx-4 mt-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Tugas Terbaru</h2>
             <Button 
               variant="ghost" 
               size="sm" 
@@ -195,40 +188,44 @@ export default function Dashboard() {
             >
               Lihat Semua
             </Button>
-          }
-        >
+          </div>
+          
           <div className="space-y-3">
-                {pendingTasks.slice(0, 3).map((task) => (
-              <div 
+            {pendingTasks.slice(0, 3).map((task) => (
+              <Card 
                 key={task.id} 
-                className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700"
+                className="border-0 shadow-sm bg-white dark:bg-gray-800 rounded-xl"
                 onClick={() => router.push('/dashboard/tasks')}
               >
-                    <div className="flex-1 space-y-1">
-                  <p className="font-medium text-sm">{task.title}</p>
-                  <p className="text-xs text-muted-foreground">{task.subjects?.name || 'Umum'}</p>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 space-y-2">
+                      <h3 className="font-medium text-sm text-gray-900 dark:text-white">{task.title}</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{task.subjects?.name || 'Umum'}</p>
                       <div className="flex items-center space-x-2">
-                    <Badge 
-                      variant={task.priority === 'tinggi' ? 'destructive' : task.priority === 'sedang' ? 'default' : 'secondary'}
-                      className="text-xs"
-                    >
+                        <Badge 
+                          variant={task.priority === 'tinggi' ? 'destructive' : task.priority === 'sedang' ? 'default' : 'secondary'}
+                          className="text-xs"
+                        >
                           {task.priority}
                         </Badge>
-                    <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
                           {new Date(task.due_date).toLocaleDateString('id-ID')}
                         </span>
                       </div>
                     </div>
-                <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                    <ArrowRight className="w-4 h-4 text-gray-400 mt-1" />
                   </div>
-                ))}
-              </div>
-        </MobileCard>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
 
         {/* Today's Schedule */}
-        <MobileCard 
-          title="Jadwal Hari Ini"
-          headerAction={
+        <div className="mx-4 mt-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Jadwal Hari Ini</h2>
             <Button 
               variant="ghost" 
               size="sm" 
@@ -237,69 +234,69 @@ export default function Dashboard() {
             >
               Lihat Semua
             </Button>
-          }
-        >
+          </div>
+          
           <div className="space-y-3">
-                {todaySchedule.slice(0, 3).map((schedule) => (
-              <div 
+            {todaySchedule.slice(0, 3).map((schedule) => (
+              <Card 
                 key={schedule.id} 
-                className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700"
+                className="border-0 shadow-sm bg-white dark:bg-gray-800 rounded-xl"
               >
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-primary/10 p-2 rounded-lg">
+                      <BookOpen className="w-5 h-5 text-primary" />
+                    </div>
                     <div className="flex-1 space-y-1">
-                  <p className="font-medium text-sm">{schedule.subjects.name}</p>
-                  <p className="text-xs text-muted-foreground">{schedule.subjects.lecturer}</p>
+                      <h3 className="font-medium text-sm text-gray-900 dark:text-white">{schedule.subjects.name}</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{schedule.subjects.lecturer}</p>
                       <div className="flex items-center space-x-2">
-                    <Badge variant="outline" className="text-xs">
-                      {schedule.start_time.substring(0,5)} - {schedule.end_time.substring(0,5)}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
+                        <Badge variant="outline" className="text-xs">
+                          {schedule.start_time.substring(0,5)} - {schedule.end_time.substring(0,5)}
+                        </Badge>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
                           {schedule.room || 'N/A'}
                         </span>
                       </div>
                     </div>
-                    <BookOpen className="w-5 h-5 text-muted-foreground" />
                   </div>
-                ))}
-              </div>
-        </MobileCard>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
 
-        {/* Quick Actions */}
-        <MobileCard title="Aksi Cepat">
+        {/* Activity Summary */}
+        <div className="mx-4 mt-6">
+          <h2 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Ringkasan Aktivitas</h2>
           <div className="grid grid-cols-2 gap-3">
-            <Button 
-              variant="outline" 
-              className="h-16 flex-col space-y-1 border-dashed hover:border-solid hover:bg-primary/5" 
-              onClick={() => router.push('/dashboard/tasks')}
-            >
-                <Plus className="w-6 h-6 mb-2" />
-              <span className="text-xs">Tambah Tugas</span>
-              </Button>
-            <Button 
-              variant="outline" 
-              className="h-16 flex-col space-y-1 border-dashed hover:border-solid hover:bg-primary/5" 
-              onClick={() => router.push('/dashboard/chat')}
-            >
-                <MessageSquare className="w-6 h-6 mb-2" />
-              <span className="text-xs">Chat Kelas</span>
-              </Button>
-            <Button 
-              variant="outline" 
-              className="h-16 flex-col space-y-1 border-dashed hover:border-solid hover:bg-primary/5" 
-              onClick={() => router.push('/dashboard/schedule')}
-            >
-                <Calendar className="w-6 h-6 mb-2" />
-              <span className="text-xs">Lihat Jadwal</span>
-              </Button>
-            <Button 
-              variant="outline" 
-              className="h-16 flex-col space-y-1 border-dashed hover:border-solid hover:bg-primary/5" 
-              onClick={() => router.push('/dashboard/subjects')}
-            >
-                <BookOpen className="w-6 h-6 mb-2" />
-              <span className="text-xs">Mata Kuliah</span>
-              </Button>
-            </div>
-        </MobileCard>
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-blue-600 font-medium">Prioritas Tinggi</p>
+                    <p className="text-xl font-bold text-blue-600">{highPriorityTasksCount}</p>
+                  </div>
+                  <AlertTriangle className="w-6 h-6 text-blue-600 opacity-80" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-green-600 font-medium">Progress</p>
+                    <p className="text-xl font-bold text-green-600">
+                      {tasks.length > 0 ? Math.round((completedTasks.length / tasks.length) * 100) : 0}%
+                    </p>
+                  </div>
+                  <TrendingUp className="w-6 h-6 text-green-600 opacity-80" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </MobileLayout>
   );

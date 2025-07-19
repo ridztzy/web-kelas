@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import MobileHeader from './MobileHeader';
 import MobileBottomNav from './MobileBottomNav';
 import { Loader2 } from 'lucide-react';
@@ -14,7 +14,6 @@ interface MobileLayoutProps {
 export default function MobileLayout({ children }: MobileLayoutProps) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -24,10 +23,10 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center space-y-4">
           <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" />
-          <p className="text-muted-foreground">Memuat...</p>
+          <p className="text-gray-600 dark:text-gray-400">Memuat...</p>
         </div>
       </div>
     );
@@ -35,10 +34,10 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center space-y-4">
           <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" />
-          <p className="text-muted-foreground">Mengalihkan...</p>
+          <p className="text-gray-600 dark:text-gray-400">Mengalihkan...</p>
         </div>
       </div>
     );

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import DashboardLayout from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import MobileLayout from "@/components/layout/MobileLayout";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { hasPermission } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { Subject, Schedule } from "@/lib/types"; // Impor Schedule
+import { Subject, Schedule } from "@/lib/types";
 import {
   BookOpen,
   Plus,
@@ -26,18 +26,9 @@ import {
   FileText,
   BarChart3,
   Loader2,
+  X,
+  MapPin
 } from "lucide-react";
-
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 import {
   Dialog,
@@ -45,11 +36,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
-  DialogClose,
 } from "@/components/ui/dialog";
 
-// Tipe data baru untuk Subject yang menyertakan array dari jadwal
 type SubjectWithSchedules = Subject & {
   schedules: Pick<Schedule, 'day' | 'start_time' | 'end_time'>[];
 };
@@ -58,17 +46,11 @@ export default function SubjectsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // State menggunakan tipe data baru
   const [subjects, setSubjects] = useState<SubjectWithSchedules[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-
-  const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
-  const [deletingSubject, setDeletingSubject] = useState<Subject | null>(null);
 
   const [newSubject, setNewSubject] = useState({
     name: "",
@@ -149,85 +131,6 @@ export default function SubjectsPage() {
     }
   };
 
-  const handleUpdateSubject = async () => {
-    if (!editingSubject) return;
-    setActionLoading(true);
-    try {
-      const response = await fetch(`/api/subjects/${editingSubject.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: editingSubject.name,
-          code: editingSubject.code,
-          lecturer: editingSubject.lecturer,
-          credits: editingSubject.credits,
-          description: editingSubject.description,
-        }),
-      });
-
-      const result = await response.json();
-      if (!response.ok)
-        throw new Error(result.error || "Gagal memperbarui mata kuliah.");
-
-      toast({
-        title: "Sukses!",
-        description: `Mata kuliah "${editingSubject.name}" berhasil diperbarui.`,
-      });
-
-      setShowEditDialog(false);
-      setEditingSubject(null);
-      loadSubjects();
-    } catch (error: any) {
-      toast({
-        title: "Gagal Memperbarui",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleDeleteSubject = async () => {
-    if (!deletingSubject) return;
-    setActionLoading(true);
-    try {
-      const response = await fetch(`/api/subjects/${deletingSubject.id}`, {
-        method: "DELETE",
-      });
-      const result = await response.json();
-      if (!response.ok)
-        throw new Error(result.error || "Gagal menghapus mata kuliah.");
-
-      toast({
-        title: "Sukses!",
-        description: `Mata kuliah "${deletingSubject.name}" berhasil dihapus.`,
-      });
-
-      setShowDeleteDialog(false);
-      setDeletingSubject(null);
-      loadSubjects();
-    } catch (error: any) {
-      toast({
-        title: "Gagal Menghapus",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const openEditDialog = (subject: Subject) => {
-    setEditingSubject({ ...subject });
-    setShowEditDialog(true);
-  };
-
-  const openDeleteDialog = (subject: Subject) => {
-    setDeletingSubject(subject);
-    setShowDeleteDialog(true);
-  };
-
   const filteredSubjects = subjects.filter(
     (subject) =>
       subject.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -236,81 +139,79 @@ export default function SubjectsPage() {
   );
 
   const SubjectCard = ({ subject }: { subject: SubjectWithSchedules }) => (
-    <Card className="hover:shadow-lg transition-all duration-300 border-l-4 border-l-primary">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <CardTitle className="text-lg flex items-center">
-              <BookOpen className="w-5 h-5 mr-2 text-primary" />
-              {subject.name}
-            </CardTitle>
-            <Badge variant="secondary" className="text-xs">
-              {subject.code}
-            </Badge>
-          </div>
-          {canManageSubjects && (
-            <div className="flex space-x-1">
-              <Button variant="ghost" size="sm" onClick={() => openEditDialog(subject)}>
-                <Edit className="w-4 h-4" />
-              </Button>
-              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => openDeleteDialog(subject)}>
-                <Trash2 className="w-4 h-4" />
-              </Button>
+    <Card className="border-0 shadow-sm bg-white dark:bg-gray-800 rounded-xl">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex-1">
+            <div className="flex items-center space-x-2 mb-2">
+              <div className="bg-primary/10 p-2 rounded-lg">
+                <BookOpen className="w-4 h-4 text-primary" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-sm text-gray-900 dark:text-white">
+                  {subject.name}
+                </h3>
+                <Badge variant="secondary" className="text-xs mt-1">
+                  {subject.code}
+                </Badge>
+              </div>
             </div>
-          )}
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex items-center space-x-2">
-            <User className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm">{subject.lecturer}</span>
           </div>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center space-x-2">
+            <User className="w-4 h-4 text-gray-400" />
+            <span className="text-sm text-gray-600 dark:text-gray-300">{subject.lecturer}</span>
+          </div>
+          
           <div className="flex items-start space-x-2">
-            <Clock className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-            <div className="flex flex-col">
+            <Clock className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+            <div className="flex flex-col space-y-1">
               {subject.schedules && subject.schedules.length > 0 ? (
-                subject.schedules.map((schedule) => (
-                  <span key={schedule.day + schedule.start_time} className="text-sm">
-                    {schedule.day}, {schedule.start_time.substring(0, 5)} - {schedule.end_time.substring(0, 5)}
-                  </span>
+                subject.schedules.map((schedule, index) => (
+                  <div key={index} className="flex items-center space-x-2">
+                    <span className="text-sm text-gray-600 dark:text-gray-300">
+                      {schedule.day}, {schedule.start_time.substring(0, 5)} - {schedule.end_time.substring(0, 5)}
+                    </span>
+                  </div>
                 ))
               ) : (
-                <span className="text-sm text-muted-foreground italic">
+                <span className="text-sm text-gray-400 italic">
                   Jadwal belum diatur
                 </span>
               )}
             </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <GraduationCap className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm">{subject.credits} SKS</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Users className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm">32 Mahasiswa</span>
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-1">
+                <GraduationCap className="w-4 h-4 text-gray-400" />
+                <span className="text-sm text-gray-600 dark:text-gray-300">{subject.credits} SKS</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <Users className="w-4 h-4 text-gray-400" />
+                <span className="text-sm text-gray-600 dark:text-gray-300">32 Mahasiswa</span>
+              </div>
+            </div>
           </div>
         </div>
 
         {subject.description && (
-          <p className="text-sm text-muted-foreground bg-muted/30 p-3 rounded-lg">
+          <p className="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg mt-3">
             {subject.description}
           </p>
         )}
 
-        <div className="flex flex-wrap gap-2 pt-2">
-          <Button variant="outline" size="sm">
+        <div className="flex space-x-2 pt-3">
+          <Button variant="outline" size="sm" className="flex-1 rounded-lg">
             <FileText className="w-4 h-4 mr-2" />
             Materi
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" className="flex-1 rounded-lg">
             <Calendar className="w-4 h-4 mr-2" />
             Jadwal
-          </Button>
-          <Button variant="outline" size="sm">
-            <BarChart3 className="w-4 h-4 mr-2" />
-            Progress
           </Button>
         </div>
       </CardContent>
@@ -319,36 +220,35 @@ export default function SubjectsPage() {
 
   if (loading) {
     return (
-      <DashboardLayout>
+      <MobileLayout>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
-      </DashboardLayout>
+      </MobileLayout>
     );
   }
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+    <MobileLayout>
+      <div className="space-y-4 pb-4">
+        {/* Header */}
+        <div className="flex items-center justify-between mx-4 mt-4">
           <div>
-            <h1 className="text-2xl font-bold">Mata Kuliah</h1>
-            <p className="text-muted-foreground">
-              Kelola mata kuliah semester ini
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Mata Kuliah</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {filteredSubjects.length} mata kuliah
             </p>
           </div>
-
           {canManageSubjects && (
             <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
               <DialogTrigger asChild>
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Tambah Mata Kuliah
+                <Button size="icon" className="rounded-full w-12 h-12 shadow-lg">
+                  <Plus className="w-6 h-6" />
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-md">
+              <DialogContent className="w-[95vw] max-w-md mx-auto rounded-2xl">
                 <DialogHeader>
-                  <DialogTitle>Tambah Mata Kuliah Baru</DialogTitle>
+                  <DialogTitle>Tambah Mata Kuliah</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div>
@@ -360,6 +260,7 @@ export default function SubjectsPage() {
                         setNewSubject({ ...newSubject, name: e.target.value })
                       }
                       placeholder="Contoh: Algoritma dan Struktur Data"
+                      className="mobile-input"
                     />
                   </div>
 
@@ -372,6 +273,7 @@ export default function SubjectsPage() {
                         setNewSubject({ ...newSubject, code: e.target.value })
                       }
                       placeholder="Contoh: CS201"
+                      className="mobile-input"
                     />
                   </div>
 
@@ -387,6 +289,7 @@ export default function SubjectsPage() {
                         })
                       }
                       placeholder="Nama dosen"
+                      className="mobile-input"
                     />
                   </div>
 
@@ -404,6 +307,7 @@ export default function SubjectsPage() {
                       }
                       min="1"
                       max="6"
+                      className="mobile-input"
                     />
                   </div>
 
@@ -419,255 +323,106 @@ export default function SubjectsPage() {
                         })
                       }
                       placeholder="Deskripsi mata kuliah"
+                      className="mobile-input"
                     />
                   </div>
 
-                  <div className="flex justify-end gap-2 pt-4">
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowCreateDialog(false)}
-                      disabled={actionLoading}
-                    >
-                      Batal
-                    </Button>
-                    <Button
-                      onClick={handleCreateSubject}
-                      disabled={actionLoading}
-                    >
-                      {actionLoading ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        "Simpan"
-                      )}
-                    </Button>
-                  </div>
+                  <Button
+                    onClick={handleCreateSubject}
+                    className="w-full mobile-button"
+                    disabled={actionLoading}
+                  >
+                    {actionLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      "Simpan"
+                    )}
+                  </Button>
                 </div>
               </DialogContent>
             </Dialog>
           )}
         </div>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Cari mata kuliah, kode, atau dosen..."
-                className="pl-10"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    Total Mata Kuliah
-                  </p>
-                  <p className="text-2xl font-bold text-blue-600">
-                    {subjects.length}
-                  </p>
-                </div>
-                <BookOpen className="w-8 h-8 text-blue-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total SKS</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    {subjects.reduce(
-                      (total, subject) => total + subject.credits,
-                      0
-                    )}
-                  </p>
-                </div>
-                <GraduationCap className="w-8 h-8 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Dosen Aktif</p>
-                  <p className="text-2xl font-bold text-orange-600">
-                    {new Set(subjects.map((s) => s.lecturer)).size}
-                  </p>
-                </div>
-                <User className="w-8 h-8 text-orange-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Rata-rata SKS</p>
-                  <p className="text-2xl font-bold text-purple-600">
-                    {(
-                      subjects.reduce(
-                        (total, subject) => total + subject.credits,
-                        0
-                      ) / (subjects.length || 1)
-                    ).toFixed(1)}
-                  </p>
-                </div>
-                <BarChart3 className="w-8 h-8 text-purple-600" />
-              </div>
-            </CardContent>
-          </Card>
+        {/* Search */}
+        <div className="mx-4">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Cari mata kuliah, kode, atau dosen..."
+              className="pl-12 mobile-input"
+            />
+            {searchTerm && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 rounded-full w-8 h-8"
+                onClick={() => setSearchTerm('')}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Stats */}
+        <div className="mx-4">
+          <div className="grid grid-cols-2 gap-3">
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-blue-600 font-medium">Total Mata Kuliah</p>
+                    <p className="text-2xl font-bold text-blue-600">{subjects.length}</p>
+                  </div>
+                  <BookOpen className="w-6 h-6 text-blue-600 opacity-80" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-green-600 font-medium">Total SKS</p>
+                    <p className="text-2xl font-bold text-green-600">
+                      {subjects.reduce((total, subject) => total + subject.credits, 0)}
+                    </p>
+                  </div>
+                  <GraduationCap className="w-6 h-6 text-green-600 opacity-80" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Subjects List */}
+        <div className="mx-4 space-y-3">
           {filteredSubjects.map((subject) => (
             <SubjectCard key={subject.id} subject={subject} />
           ))}
         </div>
+
+        {filteredSubjects.length === 0 && !loading && (
+          <div className="mx-4">
+            <Card className="border-0 shadow-sm bg-white dark:bg-gray-800 rounded-xl">
+              <CardContent className="p-8 text-center">
+                <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                <h3 className="text-lg font-medium mb-2 text-gray-900 dark:text-white">
+                  Tidak ada mata kuliah
+                </h3>
+                <p className="text-gray-500 dark:text-gray-400">
+                  {searchTerm 
+                    ? "Tidak ada mata kuliah yang cocok dengan pencarian" 
+                    : "Belum ada mata kuliah yang ditambahkan"}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
-
-      {editingSubject && (
-        <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Edit Mata Kuliah</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div>
-                <Label htmlFor="edit-name">Nama Mata Kuliah</Label>
-                <Input
-                  id="edit-name"
-                  value={editingSubject.name}
-                  onChange={(e) =>
-                    setEditingSubject({
-                      ...editingSubject,
-                      name: e.target.value,
-                    })
-                  }
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-code">Kode Mata Kuliah</Label>
-                <Input
-                  id="edit-code"
-                  value={editingSubject.code}
-                  onChange={(e) =>
-                    setEditingSubject({
-                      ...editingSubject,
-                      code: e.target.value,
-                    })
-                  }
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-lecturer">Dosen Pengampu</Label>
-                <Input
-                  id="edit-lecturer"
-                  value={editingSubject.lecturer}
-                  onChange={(e) =>
-                    setEditingSubject({
-                      ...editingSubject,
-                      lecturer: e.target.value,
-                    })
-                  }
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-credits">Jumlah SKS</Label>
-                <Input
-                  id="edit-credits"
-                  type="number"
-                  value={editingSubject.credits}
-                  onChange={(e) =>
-                    setEditingSubject({
-                      ...editingSubject,
-                      credits: parseInt(e.target.value),
-                    })
-                  }
-                  min="1"
-                  max="6"
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-description">Deskripsi</Label>
-                <Textarea
-                  id="edit-description"
-                  value={editingSubject.description || ""}
-                  onChange={(e) =>
-                    setEditingSubject({
-                      ...editingSubject,
-                      description: e.target.value,
-                    })
-                  }
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button
-                  variant="outline"
-                  onClick={() => setEditingSubject(null)}
-                  disabled={actionLoading}
-                >
-                  Batal
-                </Button>
-              </DialogClose>
-              <Button onClick={handleUpdateSubject} disabled={actionLoading}>
-                {actionLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  "Simpan Perubahan"
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {deletingSubject && (
-        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Apakah Anda Yakin?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Tindakan ini tidak bisa dibatalkan. Ini akan menghapus mata
-                kuliah
-                <span className="font-bold"> {deletingSubject.name} </span>{" "}
-                secara permanen.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel
-                onClick={() => setDeletingSubject(null)}
-                disabled={actionLoading}
-              >
-                Batal
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleDeleteSubject}
-                disabled={actionLoading}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                {actionLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  "Ya, Hapus"
-                )}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
-    </DashboardLayout>
+    </MobileLayout>
   );
 }

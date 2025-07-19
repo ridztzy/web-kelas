@@ -1,16 +1,15 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import DashboardLayout from "@/components/layout/DashboardLayout";
+import MobileLayout from "@/components/layout/MobileLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatMessage, User } from "@/lib/types";
 import { fetchMessages, subscribeToMessages, deleteMessage, updateMessage } from "@/lib/messages";
 import { supabase } from "@/lib/supabase";
 import { Loader2 } from "lucide-react";
-import ChatHeader from "@/components/chat/ChatHeader";
-import MessageList from "@/components/chat/MessageList";
-import MessageInput from "@/components/chat/MessageInput";
-import MemberList from "@/components/chat/MemberList";
+import MobileChatHeader from "@/components/chat/MobileChatHeader";
+import MobileMessageList from "@/components/chat/MobileMessageList";
+import MobileMessageInput from "@/components/chat/MobileMessageInput";
 
 type TypingUser = Pick<User, "id" | "name" | "avatar_url" | "role">;
 
@@ -19,12 +18,10 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
-  const [showSidebar, setShowSidebar] = useState(false);
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
   const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
   const typingTimeoutRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
-  // ✅ FUNGSI DIPINDAHKAN KE SINI (LEVEL KOMPONEN)
   const handleDeleteMessage = async (messageId: string) => {
     const isConfirmed = window.confirm("Apakah Anda yakin ingin menghapus pesan ini?");
     if (!isConfirmed) return;
@@ -110,42 +107,35 @@ export default function ChatPage() {
 
   if (loading) {
     return (
-      <DashboardLayout>
+      <MobileLayout>
         <div className="h-screen flex items-center justify-center">
           <Loader2 className="w-8 h-8 animate-spin" />
         </div>
-      </DashboardLayout>
+      </MobileLayout>
     );
   }
 
   return (
-    <DashboardLayout>
+    <MobileLayout>
       <div className="h-screen flex flex-col">
-        <ChatHeader onToggleSidebar={() => setShowSidebar(!showSidebar)} />
-        <div className="flex-1 flex overflow-hidden">
-          <div className="flex-1 flex flex-col min-w-0 bg-gray-50 dark:bg-gray-900">
-            {/* ✅ Pengiriman props sekarang sudah benar */}
-            <MessageList
-              messages={messages}
-              typingUsers={typingUsers}
-              currentUser={user}
-              onStartReply={setReplyingTo}
-              onDelete={handleDeleteMessage}
-              onEdit={handleStartEdit}
-            />
-            <MessageInput
-              replyingTo={replyingTo}
-              setReplyingTo={setReplyingTo}
-              editingMessage={editingMessage}
-              setEditingMessage={setEditingMessage}
-            />
-          </div>
-          <MemberList
-            showSidebar={showSidebar}
-            onClose={() => setShowSidebar(false)}
+        <MobileChatHeader />
+        <div className="flex-1 flex flex-col min-w-0 bg-gray-50 dark:bg-gray-900 overflow-hidden">
+          <MobileMessageList
+            messages={messages}
+            typingUsers={typingUsers}
+            currentUser={user}
+            onStartReply={setReplyingTo}
+            onDelete={handleDeleteMessage}
+            onEdit={handleStartEdit}
+          />
+          <MobileMessageInput
+            replyingTo={replyingTo}
+            setReplyingTo={setReplyingTo}
+            editingMessage={editingMessage}
+            setEditingMessage={setEditingMessage}
           />
         </div>
       </div>
-    </DashboardLayout>
+    </MobileLayout>
   );
 }

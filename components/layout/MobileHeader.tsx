@@ -18,9 +18,8 @@ import {
   LogOut, 
   Menu, 
   X, 
-  ChevronDown, 
-  Loader2,
-  ArrowLeft
+  ArrowLeft,
+  MoreVertical
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -61,7 +60,6 @@ export default function MobileHeader() {
 
   const [notifications, setNotifications] = useState<NotificationWithActor[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [isLoadingNotif, setIsLoadingNotif] = useState(true);
 
   // Get page title based on current route
   const getPageTitle = () => {
@@ -84,6 +82,10 @@ export default function MobileHeader() {
         return 'Pengaturan';
       case '/dashboard/analytics':
         return 'Analitik';
+      case '/dashboard/search':
+        return 'Pencarian';
+      case '/dashboard/profile':
+        return 'Profil';
       default:
         return 'Sistem Kelas';
     }
@@ -91,7 +93,6 @@ export default function MobileHeader() {
 
   const fetchNotifications = async () => {
     if (!user?.id) return;
-    setIsLoadingNotif(true);
     try {
       const { data, error } = await supabase
         .from('notifications')
@@ -114,8 +115,6 @@ export default function MobileHeader() {
       }
     } catch (error) {
       console.error("Gagal mengambil notifikasi di header:", error);
-    } finally {
-      setIsLoadingNotif(false);
     }
   };
 
@@ -153,7 +152,7 @@ export default function MobileHeader() {
   const showBackButton = pathname !== '/dashboard';
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800 safe-area-pt">
       <div className="flex items-center justify-between px-4 h-16">
         {/* Left Section */}
         <div className="flex items-center space-x-3">
@@ -162,44 +161,53 @@ export default function MobileHeader() {
               variant="ghost" 
               size="icon" 
               onClick={() => router.back()}
-              className="rounded-full"
+              className="rounded-full w-10 h-10"
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
           ) : (
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-3">
               {user?.avatar_url ? (
-                <Avatar className="w-8 h-8">
+                <Avatar className="w-10 h-10">
                   <AvatarImage src={user.avatar_url} alt={user.name || 'Avatar'} />
                   <AvatarFallback>{user.name?.charAt(0) || 'U'}</AvatarFallback>
                 </Avatar>
               ) : (
-                <UserCircle className="w-8 h-8 text-primary" />
+                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                  <UserCircle className="w-6 h-6 text-primary" />
+                </div>
               )}
               <div>
-                <p className="text-sm font-medium">Halo, {user?.name?.split(' ')[0] || 'User'}!</p>
-                <p className="text-xs text-muted-foreground">NIM: {user?.nim}</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Halo, {user?.name?.split(' ')[0] || 'User'}!
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">NIM: {user?.nim}</p>
               </div>
             </div>
           )}
         </div>
 
         {/* Center Section - Page Title */}
-        <h1 className="text-lg font-semibold text-center flex-1 mx-4 truncate">
+        <h1 className="text-lg font-semibold text-center flex-1 mx-4 truncate text-gray-900 dark:text-white">
           {getPageTitle()}
         </h1>
 
         {/* Right Section */}
         <div className="flex items-center space-x-2">
           {/* Search Button */}
-          <Button variant="ghost" size="icon" className="rounded-full">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="rounded-full w-10 h-10"
+            onClick={() => router.push('/dashboard/search')}
+          >
             <Search className="w-5 h-5" />
           </Button>
 
           {/* Notifications */}
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative rounded-full">
+              <Button variant="ghost" size="icon" className="relative rounded-full w-10 h-10">
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && (
                   <Badge className="absolute -top-1 -right-1 w-5 h-5 rounded-full p-0 flex items-center justify-center text-xs min-w-[20px]">
@@ -216,18 +224,14 @@ export default function MobileHeader() {
                 </SheetTitle>
               </SheetHeader>
               <ScrollArea className="h-[calc(100vh-120px)] mt-4">
-                {isLoadingNotif ? (
-                  <div className="flex justify-center items-center p-4">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  </div>
-                ) : notifications.length > 0 ? (
+                {notifications.length > 0 ? (
                   <div className="space-y-3">
                     {notifications.map((notif) => {
                       const { Icon, iconColorClass } = getNotificationVisuals(notif.event_type);
                       return (
                         <div
                           key={notif.id}
-                          className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+                          className="flex items-start gap-3 p-3 rounded-xl border cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                           onClick={() => {
                             if (notif.read_at === null) {
                               markAsRead(notif.id);
@@ -239,10 +243,10 @@ export default function MobileHeader() {
                         >
                           <Icon className={`w-4 h-4 mt-1 flex-shrink-0 ${iconColorClass}`} />
                           <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-medium ${notif.read_at === null ? '' : 'text-muted-foreground'}`}>
+                            <p className={`text-sm font-medium ${notif.read_at === null ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
                               {notif.title}
                             </p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
                               {new Date(notif.created_at).toLocaleString('id-ID', { 
                                 day: 'numeric', 
                                 month: 'short', 
@@ -259,7 +263,7 @@ export default function MobileHeader() {
                     })}
                   </div>
                 ) : (
-                  <div className="text-center text-sm text-muted-foreground p-4">
+                  <div className="text-center text-sm text-gray-500 dark:text-gray-400 p-4">
                     Tidak ada notifikasi.
                   </div>
                 )}
@@ -270,8 +274,8 @@ export default function MobileHeader() {
           {/* Profile Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full">
-                <Menu className="w-5 h-5" />
+              <Button variant="ghost" size="icon" className="rounded-full w-10 h-10">
+                <MoreVertical className="w-5 h-5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
@@ -285,6 +289,9 @@ export default function MobileHeader() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => router.push('/dashboard/profile')} className="cursor-pointer">
+                <UserCircle className="w-4 h-4 mr-2" /> Profil
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push('/dashboard/settings')} className="cursor-pointer">
                 <Settings className="w-4 h-4 mr-2" /> Pengaturan
               </DropdownMenuItem>
