@@ -1,16 +1,17 @@
-import './globals.css';
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import { AuthProvider } from '@/contexts/AuthContext';
-import { ThemeProvider } from '@/contexts/ThemeContext';
-import { Toaster } from '@/components/ui/toaster';
-import NextTopLoader from 'nextjs-toploader';
+import "./globals.css";
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
+import { Toaster } from "@/components/ui/toaster";
+import NextTopLoader from "nextjs-toploader";
+import QueryProvider from "@/components/provider/QueryProvider";
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'Sistem Manajemen Kelas - Ilmu Komputer',
-  description: 'Aplikasi manajemen kelas untuk mahasiswa Ilmu Komputer',
+  title: "Sistem Manajemen Kelas - Ilmu Komputer",
+  description: "Aplikasi manajemen kelas untuk mahasiswa Ilmu Komputer",
 };
 
 export default function RootLayout({
@@ -21,15 +22,17 @@ export default function RootLayout({
   return (
     <html lang="id">
       <body className={inter.className}>
-          <NextTopLoader
-  color="#3B82F6"
-  showSpinner={false}
-  zIndex={99999} // <-- TAMBAHKAN INI
-/>
-  <ThemeProvider>
+        <NextTopLoader
+          color="#3B82F6"
+          showSpinner={false}
+          zIndex={99999} // <-- TAMBAHKAN INI
+        />
+        <ThemeProvider>
           <AuthProvider>
-            {children}
-            <Toaster />
+            <QueryProvider>
+              {children}
+              <Toaster />
+            </QueryProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

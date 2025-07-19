@@ -60,7 +60,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             setSidebarOpen={setSidebarOpen}
           />
           <main className="flex-1 overflow-y-auto">
-            <div className="p-6 max-w-7xl mx-auto">
+            <div className="p-4 max-w-7xl mx-auto">
               <div className="animate-fade-in">
                 {children}
               </div>

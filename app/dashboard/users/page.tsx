@@ -109,15 +109,7 @@ export default function UsersPage() {
 
   const canManageUsers = hasPermission(user?.role || "", ["admin"]);
 
-    useEffect(() => {
-    // Tambahkan pengecekan di dalam useEffect
-    if (canManageUsers) {
-      loadUsers();
-    } else if (user) { 
-      // Jika user sudah login tapi bukan admin, hentikan loading
-      setLoading(false);
-    }
-  }, [user, canManageUsers]);
+
 
   if (!canManageUsers) {
     return (

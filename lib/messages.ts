@@ -19,6 +19,8 @@ export interface MessageUpdate {
 }
 
 // --- Fungsi yang Diperbaiki ---
+// GANTI KODE LAMA ANDA DENGAN YANG INI
+// GANTI LAGI DENGAN VERSI FINAL INI
 const messageQuery = `
   id,
   created_at,
@@ -31,12 +33,16 @@ const messageQuery = `
   file_size,
   file_url,
   reply_to,
-  sender:profiles!messages_sender_id_fkey (
+  sender:profiles (
     id, name, role, avatar_url
   ),
-  replied_message:messages!reply_to (
-    id, message, sender_id,
-    sender:profiles!messages_sender_id_fkey(id, name)
+  replied_message:reply_to (
+    id,
+    message,
+    sender:profiles (
+      id,
+      name
+    )
   )
 `;
 
@@ -59,7 +65,7 @@ const mapToChatMessage = (msg: any): ChatMessage => {
     reply_to: msg.reply_to,
     replied_message: msg.replied_message ? {
         message: msg.replied_message.message,
-        senderName: msg.replied_message.sender?.name || 'User'
+        senderName: msg.replied_message.sender?.name
     } : null,
   };
 };

@@ -38,14 +38,21 @@ export interface ChatMessage {
   senderAvatar?: string;
   timestamp: Date;
   edited?: boolean;
-  replyTo?: string;
+  reply_to?: string;
   type: 'text' | 'image' | 'file';
   attachments?: string[];
   fileName?: string;
   fileUrl?: string;
   fileSize?: number;
   status: 'sent' | 'delivered' | 'read';
+
+  // ✅ Tambahkan ini untuk memperbaiki error
+  replied_message?: {
+    message: string;
+    senderName: string;
+  } | null;
 }
+
 
 export interface Subject {
   id: string;

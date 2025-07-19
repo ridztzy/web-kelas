@@ -265,6 +265,10 @@ export async function POST(request: Request) {
         { status: 201 }
       );
     }
+      return NextResponse.json(
+    { error: "Tipe tugas tidak valid setelah divalidasi." },
+    { status: 400 }
+  );
   } catch (error: any) {
     console.error("Unexpected error in POST task:", error);
     return NextResponse.json(
