@@ -28,6 +28,18 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  // Auto-redirect to mobile version for mobile devices
+  const userAgent = req.headers.get('user-agent') || '';
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+  
+  // Only redirect if accessing dashboard root and is mobile
+  if (isMobile && req.nextUrl.pathname === '/dashboard' && hasSession) {
+    // Check if it's not already a mobile route
+    if (!req.nextUrl.pathname.includes('/mobile')) {
+      return NextResponse.redirect(new URL('/dashboard', req.url));
+    }
+  }
+
   return res;
 }
 
